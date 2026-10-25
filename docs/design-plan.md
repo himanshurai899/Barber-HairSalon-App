@@ -177,9 +177,10 @@ barber_services barber_id, service_id                  -- who does what
 availability    id, barber_id, weekday, start_time, end_time   -- many rows/day = breaks
 time_off        id, barber_id, during tstzrange, reason
 customers       id, phone (E.164, unique), name, wa_opt_in, created_at
-bookings        id, customer_id, barber_id, service_id, during tstzrange,
-                status, source, note, manage_token (unique), price_minor,
+bookings        id, customer_id, barber_id, service_id (primary = first), during tstzrange (total duration),
+                status, source, note, manage_token (unique), price_minor (total),
                 decided_by?, decided_at?, decision_note?, created_at
+booking_services booking_id, service_id, position, name, duration_min, price_minor   -- one row per service in a booking; snapshots
 notices         id, kind ('offer'|'notice'), title, body, badge, starts_on, ends_on, active, sort
 wa_inbound      wa_message_id (pk), from_phone, received_at, greeted_at   -- dedupe + greet-once-per-24h (greeted_at = last greeting sent)
 wa_outbound     id, booking_id?, to_phone, template, status (sent|failed|skipped), error, created_at   -- notification log shown in admin
@@ -187,6 +188,8 @@ user / session / account   -- Better Auth tables, user.role in ('admin','barber'
 ```
 
 Money in minor units (paise/cents). All times `timestamptz`; shop timezone converts at the edges. Price copied onto the booking so later price edits don't rewrite history.
+
+**Several services in one booking:** the customer ticks any number of services. Duration and price are the sums; one slot, one barber who offers *all* of them ("Any available" picks among those). `booking_services` keeps a snapshot (name, length, price) per service, so later edits to a service never rewrite a booking; `bookings.service_id` stays as the first service and `bookings.price_minor` is the total. The `no_overlap` constraint is unchanged and still the only referee. WhatsApp texts show the services joined with " + " in the existing service variable.
 
 **The rule that matters — no double booking, enforced by the database:**
 

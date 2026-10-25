@@ -43,16 +43,15 @@ async function Body({ status }: { status: string }) {
               <option value="admin">Other</option>
             </select>
           </label>
-          <label className="block text-sm">
-            Service
-            <select name="serviceId" required className={field}>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.durationMin} min)
-                </option>
-              ))}
-            </select>
-          </label>
+          <fieldset className="space-y-1 text-sm">
+            <legend>Services (tick one or more)</legend>
+            {services.map((s) => (
+              <label key={s.id} className="flex min-h-11 items-center gap-3">
+                <input type="checkbox" name="serviceIds" value={s.id} className="size-5" />
+                {s.name} ({s.durationMin} min)
+              </label>
+            ))}
+          </fieldset>
           <label className="block text-sm">
             Barber
             <select name="barberId" required className={field}>

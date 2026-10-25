@@ -207,7 +207,7 @@ export const bookings = pgTable(
     id: serial("id").primaryKey(),
     customerId: integer("customer_id").notNull().references(() => customers.id),
     barberId: integer("barber_id").notNull().references(() => barbers.id),
-    serviceId: integer("service_id").notNull().references(() => services.id),
+    serviceId: integer("service_id").notNull().references(() => services.id), // primary (first) service; all of them: booking_services
     during: tstzrange("during").notNull(),
     status: text("status", { enum: bookingStatuses }).notNull().default("pending"),
     source: text("source", { enum: bookingSources }).notNull(),
@@ -216,7 +216,7 @@ export const bookings = pgTable(
       .notNull()
       .unique()
       .default(sql`replace(gen_random_uuid()::text, '-', '')`),
-    priceMinor: integer("price_minor").notNull(), // copied from the service at booking time
+    priceMinor: integer("price_minor").notNull(), // total of the booked services, copied at booking time
     decidedBy: text("decided_by").references(() => user.id, { onDelete: "set null" }),
     decidedAt: ts("decided_at"),
     decisionNote: text("decision_note"),
@@ -227,6 +227,20 @@ export const bookings = pgTable(
     index("bookings_customer_idx").on(t.customerId),
     index("bookings_status_idx").on(t.status, t.createdAt),
   ],
+);
+
+// One row per service in a booking. Name, length and price are snapshots: later edits to a service never rewrite history.
+export const bookingServices = pgTable(
+  "booking_services",
+  {
+    bookingId: integer("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
+    serviceId: integer("service_id").notNull().references(() => services.id),
+    position: smallint("position").notNull().default(0), // 0 = primary, mirrors bookings.service_id
+    name: text("name").notNull(),
+    durationMin: integer("duration_min").notNull(),
+    priceMinor: integer("price_minor").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.bookingId, t.serviceId] })],
 );
 
 export const notices = pgTable("notices", {

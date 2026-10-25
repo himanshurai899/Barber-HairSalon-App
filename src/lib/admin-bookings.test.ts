@@ -10,7 +10,7 @@ type Db = Awaited<ReturnType<typeof createLocalDb>>;
 let db: Db;
 const admin: Actor = { userId: "a", role: "admin", barberId: null };
 const hitesh: Actor = { userId: "b", role: "barber", barberId: 1 };
-const base = { serviceId: 1, barberId: 1, date: "2026-11-02", time: "10:00", name: "Caller", phone: "98250 11111", source: "phone" as const };
+const base = { serviceIds: [1], barberId: 1, date: "2026-11-02", time: "10:00", name: "Caller", phone: "98250 11111", source: "phone" as const };
 
 beforeEach(async () => {
   db = await createLocalDb();
@@ -45,7 +45,7 @@ describe("createManualBooking", () => {
 
   test("invalid phone or unknown service is refused", async () => {
     expect(await createManualBooking(db, admin, { ...base, phone: "123456" })).toMatchObject({ ok: false });
-    expect(await createManualBooking(db, admin, { ...base, serviceId: 999 })).toMatchObject({ ok: false });
+    expect(await createManualBooking(db, admin, { ...base, serviceIds: [999] })).toMatchObject({ ok: false });
   });
 
   test("a barber can only book for themselves; anonymous is rejected", async () => {

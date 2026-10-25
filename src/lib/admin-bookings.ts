@@ -4,6 +4,7 @@ import parsePhoneNumber from "libphonenumber-js";
 import { z } from "zod";
 import { AccessError, requireRole, type Actor } from "./access";
 import { admin, check } from "./admin-service";
+import { insertBooking, loadBookableServices } from "./booking-lines";
 import type { Db } from "./db";
 import * as s from "./db/schema";
 import { shortDate } from "./format";
@@ -25,7 +26,7 @@ export async function createManualBooking(
   const a = requireRole(actor, ["admin", "barber"]);
   const d = check(
     z.object({
-      serviceId: z.coerce.number().int().positive(),
+      serviceIds: z.array(z.coerce.number().int().positive()).min(1, "Pick at least one service").max(10).refine((ids) => new Set(ids).size === ids.length, "Each service once"),
       barberId: z.coerce.number().int().positive(),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date"),
       time: z.string().regex(/^\d{2}:\d{2}$/, "Pick a time"),
@@ -39,32 +40,22 @@ export async function createManualBooking(
   if (a.role === "barber" && a.barberId !== d.barberId) throw new AccessError("forbidden");
   const phone = parsePhoneNumber(d.phone, "IN");
   if (!phone?.isValid()) return { ok: false, error: "Check the phone number." };
-  const [service] = await db.select().from(s.services).where(eq(s.services.id, d.serviceId));
-  if (!service) return { ok: false, error: "Unknown service." };
+  const svcs = await loadBookableServices(db, d.serviceIds, false); // a human booked it: an inactive service is still allowed
+  if (!svcs) return { ok: false, error: "Unknown service." };
   const tz = (await loadSettings(db)).timezone;
   const start = zonedToUtc(d.date, d.time, tz);
-  const end = new Date(start.getTime() + service.durationMin * 60_000);
   const [customer] = await db
     .insert(s.customers)
     .values({ phone: phone.number, name: d.name, waOptIn: false }) // no WhatsApp consent was given on the phone
     .onConflictDoUpdate({ target: s.customers.phone, set: { name: d.name } })
     .returning();
   try {
-    const [row] = await db
-      .insert(s.bookings)
-      .values({
-        customerId: customer.id,
-        barberId: d.barberId,
-        serviceId: service.id,
-        during: { start, end },
-        status: "approved",
-        source: d.source,
-        note: d.note || null,
-        priceMinor: service.priceMinor,
-        decidedBy: a.userId,
-        decidedAt: new Date(),
-      })
-      .returning({ token: s.bookings.manageToken });
+    const row = await insertBooking(
+      db,
+      { customerId: customer.id, barberId: d.barberId, status: "approved", source: d.source, note: d.note || null, decidedBy: a.userId, decidedAt: new Date() },
+      start,
+      svcs,
+    );
     return { ok: true, token: row.token };
   } catch (e) {
     if (isOverlap(e)) return { ok: false, error: taken };

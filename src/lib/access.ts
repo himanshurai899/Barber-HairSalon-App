@@ -1,6 +1,7 @@
 // Role checks and per-barber data scoping (design-plan sections 2 and 11).
 // Every server action calls requireRole itself; layouts are only a convenience.
 import { and, asc, eq, type SQL } from "drizzle-orm";
+import { withServices } from "./booking-lines";
 import type { Db } from "./db";
 import * as s from "./db/schema";
 
@@ -29,7 +30,7 @@ const columns = {
   createdAt: s.bookings.createdAt,
   barberId: s.bookings.barberId,
   barber: s.barbers.name,
-  service: s.services.name,
+  service: s.services.name, // primary; the rows returned carry every service (withServices)
   customer: s.customers.name,
   customerPhone: s.customers.phone,
 };
@@ -49,12 +50,12 @@ function visibleBookings(db: Db, actor: Actor, extra?: SQL) {
 export async function listBookingsFor(db: Db, actor: Actor | null, statuses?: s.BookingStatus[]) {
   const a = requireRole(actor, ["admin", "barber"]);
   const rows = await visibleBookings(db, a).orderBy(asc(s.bookings.createdAt), asc(s.bookings.id));
-  return statuses ? rows.filter((r) => statuses.includes(r.status)) : rows;
+  return withServices(db, statuses ? rows.filter((r) => statuses.includes(r.status)) : rows);
 }
 
 /** One booking, or null when it does not exist or belongs to another barber. */
 export async function getBookingFor(db: Db, actor: Actor | null, id: number) {
   const a = requireRole(actor, ["admin", "barber"]);
   const [row] = await visibleBookings(db, a, eq(s.bookings.id, id));
-  return row ?? null;
+  return row ? (await withServices(db, [row]))[0] : null;
 }

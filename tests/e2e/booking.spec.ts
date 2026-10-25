@@ -5,7 +5,8 @@ const phone = () => `9${Math.floor(100000000 + Math.random() * 899999999)}`;
 
 async function startBooking(page: import("@playwright/test").Page, name: string) {
   await page.goto("/book");
-  await page.getByRole("link", { name: /^Beard trim/ }).click();
+  await page.getByLabel(/^Beard trim/).check();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("link", { name: "Any available" }).click();
   await page.getByRole("list").filter({ has: page.getByRole("link", { name: /am|pm/ }) }).getByRole("link").first().click();
   await expect(page.getByRole("heading", { name: "4. Your details" })).toBeVisible();
@@ -36,6 +37,7 @@ test("an invalid phone number shows an error and keeps what was typed", async ({
 
 test("booking started from the WhatsApp link is recorded as a WhatsApp booking", async ({ page }) => {
   await page.goto("/book?src=wa");
-  await page.getByRole("link", { name: /^Beard trim/ }).click();
+  await page.getByLabel(/^Beard trim/).check();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/src=wa/);
 });

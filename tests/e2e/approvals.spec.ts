@@ -6,7 +6,8 @@ const PASSWORD = "demo-password-1";
 test("customer books Hitesh, Hitesh approves, customer sees approved", async ({ page, browser }) => {
   const name = `Approval ${Date.now()}`;
   await page.goto("/book");
-  await page.getByRole("link", { name: /^Haircut and beard/ }).click();
+  await page.getByLabel(/^Haircut and beard/).check();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("link", { name: "Hitesh" }).click();
   await page.getByRole("list").filter({ has: page.getByRole("link", { name: /am|pm/ }) }).getByRole("link").last().click();
   await page.getByLabel("Your name").fill(name);
@@ -39,4 +40,39 @@ test("customer books Hitesh, Hitesh approves, customer sees approved", async ({ 
 
   await page.goto(customerUrl);
   await expect(page.getByRole("status")).toContainText("approved");
+});
+
+test("customer clubs two services, sees the total, the barber approves and both services show", async ({ page, browser }) => {
+  const name = `Combo ${Date.now()}`;
+  await page.goto("/book");
+  await page.getByLabel(/^Haircut\s+30 min/).check();
+  await page.getByLabel(/^Beard trim/).check();
+  await expect(page.getByRole("status")).toContainText("2 services, 45 min, ₹300");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("link", { name: "Hitesh" }).click();
+  await page.getByRole("list").filter({ has: page.getByRole("link", { name: /am|pm/ }) }).getByRole("link").nth(2).click();
+  await expect(page.getByText("Haircut + Beard trim")).toBeVisible();
+  await page.getByLabel("Your name").fill(name);
+  await page.getByLabel("Phone number").fill(`9${Math.floor(100000000 + Math.random() * 899999999)}`);
+  await page.getByRole("button", { name: "Request booking" }).click();
+  await expect(page.getByRole("status")).toContainText("pending");
+  await expect(page.getByText("Haircut", { exact: true })).toBeVisible();
+  await expect(page.getByText("Beard trim", { exact: true })).toBeVisible();
+  const customerUrl = page.url();
+
+  const barber = await (await browser.newContext()).newPage();
+  await barber.goto("/login");
+  await barber.getByLabel("Email").fill("hitesh@demo.test");
+  await barber.getByLabel("Password").fill(PASSWORD);
+  await barber.getByRole("button", { name: "Sign in" }).click();
+  const card = barber.getByRole("listitem").filter({ hasText: name });
+  await expect(card).toContainText("Haircut + Beard trim");
+  await card.getByRole("button", { name: "Approve" }).click();
+  await expect(card.getByRole("button", { name: "Approve" })).toHaveCount(0);
+  await expect(card).toContainText("Haircut + Beard trim"); // still both in the schedule
+
+  await page.goto(customerUrl);
+  await expect(page.getByRole("status")).toContainText("approved");
+  await expect(page.getByText("Haircut", { exact: true })).toBeVisible();
+  await expect(page.getByText("Beard trim", { exact: true })).toBeVisible();
 });

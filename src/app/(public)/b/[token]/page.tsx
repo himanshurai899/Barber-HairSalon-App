@@ -49,8 +49,14 @@ async function Status({ token }: { token: string }) {
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted">Name</dt>
         <dd>{b.customer}</dd>
-        <dt className="text-muted">Service</dt>
-        <dd>{b.service}</dd>
+        <dt className="text-muted">{b.services.length > 1 ? "Services" : "Service"}</dt>
+        <dd>
+          {b.services.map((x) => (
+            <span key={x.name} className="block">
+              {x.name}
+            </span>
+          ))}
+        </dd>
         <dt className="text-muted">Barber</dt>
         <dd>{b.barber}</dd>
         <dt className="text-muted">When</dt>
@@ -64,8 +70,12 @@ async function Status({ token }: { token: string }) {
             hour12: true,
           })}
         </dd>
-        <dt className="text-muted">Price</dt>
-        <dd>{money(b.priceMinor, shop.currency)}</dd>
+        {b.priceMinor > 0 && (
+          <>
+            <dt className="text-muted">Price</dt>
+            <dd>{money(b.priceMinor, shop.currency)}</dd>
+          </>
+        )}
       </dl>
       <div className="flex flex-wrap gap-2">
         <a href={mapsDirectionsUrl(shop)} className="inline-flex min-h-11 items-center rounded-md border border-line px-5 text-sm">

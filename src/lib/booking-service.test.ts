@@ -10,7 +10,7 @@ import { seed } from "./db/seed";
 type Db = Awaited<ReturnType<typeof createLocalDb>>;
 let db: Db;
 const now = new Date("2026-11-01T06:00:00Z");
-const base = { serviceId: 1, barber: 1 as number | "any", date: "2026-11-02", time: "10:00", name: "Asha", phone: "98250 11111" };
+const base = { serviceIds: [1], barber: 1 as number | "any", date: "2026-11-02", time: "10:00", name: "Asha", phone: "98250 11111" };
 
 beforeEach(async () => {
   db = await createLocalDb();
@@ -94,7 +94,7 @@ describe("createBooking", () => {
 describe("getAvailableSlots", () => {
   test("hides slots taken by pending bookings", async () => {
     await createBooking(db, base, now);
-    const slots = await getAvailableSlots(db, { serviceId: 1, date: "2026-11-02", now });
+    const slots = await getAvailableSlots(db, { serviceIds: [1], date: "2026-11-02", now });
     const first = slots.find((s) => s.start.toISOString() === "2026-11-02T04:30:00.000Z");
     expect(first?.barberIds).toEqual([2]);
   });

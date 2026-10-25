@@ -15,7 +15,7 @@ const site = "https://salon.test";
 async function book(over: { waOptIn?: boolean; barber?: number } = {}) {
   const r = await createBooking(
     db,
-    { serviceId: 1, barber: over.barber ?? 1, date: "2026-11-02", time: "10:00", name: "Asha", phone: "98250 11111", waOptIn: over.waOptIn ?? true },
+    { serviceIds: [1], barber: over.barber ?? 1, date: "2026-11-02", time: "10:00", name: "Asha", phone: "98250 11111", waOptIn: over.waOptIn ?? true },
     now,
   );
   if (!r.ok) throw new Error("setup");

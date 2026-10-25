@@ -3,7 +3,7 @@ import type { BookingStatus } from "./db/schema";
 
 export type SlotInput = {
   date: string; // YYYY-MM-DD, shop-local
-  service: { id: number; durationMin: number };
+  services: { id: number; durationMin: number }[]; // one booking: lengths add up, the barber must offer all of them
   barbers: { id: number; sort: number; active: boolean; serviceIds: number[] }[];
   shopHours: { weekday: number; opens: string; closes: string }[]; // no row = closed
   specialHours: { startsOn: string; endsOn: string; opens: string | null; closes: string | null; closed: boolean }[];
@@ -44,7 +44,7 @@ const weekdayOf = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
 const overlaps = (aS: number, aE: number, bS: number, bE: number) => aS < bE && bS < aE;
 
 export function getSlots(i: SlotInput): Slot[] {
-  const { date, service, settings, now } = i;
+  const { date, services, settings, now } = i;
   const tz = settings.timezone;
   const weekday = weekdayOf(date);
 
@@ -59,12 +59,12 @@ export function getSlots(i: SlotInput): Slot[] {
 
   const earliest = now.getTime() + settings.minNoticeMin * MIN;
   const latest = now.getTime() + settings.horizonDays * 24 * 60 * MIN;
-  const dur = service.durationMin * MIN;
+  const dur = services.reduce((n, x) => n + x.durationMin, 0) * MIN;
   const step = settings.slotStepMin * MIN;
   const byStart = new Map<number, number[]>();
 
   for (const barber of i.barbers) {
-    if (!barber.active || !barber.serviceIds.includes(service.id)) continue;
+    if (!barber.active || !services.every((x) => barber.serviceIds.includes(x.id))) continue;
     const busy = [
       ...i.timeOff.filter((o) => o.barberId === barber.id).map((o) => [o.start.getTime(), o.end.getTime()]),
       ...i.bookings

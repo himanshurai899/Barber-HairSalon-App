@@ -110,15 +110,15 @@ describe("hours", () => {
 
 describe("time off", () => {
   test("hides only that barber's slots for the days covered, inclusive of the last day", async () => {
-    const before = await getAvailableSlots(db, { serviceId: 1, date: "2026-11-02", now });
+    const before = await getAvailableSlots(db, { serviceIds: [1], date: "2026-11-02", now });
     expect(before[0].barberIds).toEqual([1, 2]);
     await addTimeOff(db, admin, { barberId: 1, from: "2026-11-02", to: "2026-11-03", reason: "Away" });
     for (const date of ["2026-11-02", "2026-11-03"]) {
-      const slots = await getAvailableSlots(db, { serviceId: 1, date, now });
+      const slots = await getAvailableSlots(db, { serviceIds: [1], date, now });
       expect(slots.length).toBeGreaterThan(0);
       expect(slots.every((s) => s.barberIds.join() === "2")).toBe(true);
     }
-    const after = await getAvailableSlots(db, { serviceId: 1, date: "2026-11-04", now });
+    const after = await getAvailableSlots(db, { serviceIds: [1], date: "2026-11-04", now });
     expect(after[0].barberIds).toEqual([1, 2]);
     expect(await db.select().from(timeOff)).toHaveLength(1);
   });
