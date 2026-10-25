@@ -44,3 +44,13 @@ The PR should show the test landing with (or before) the code.
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
 ```
+
+## Branch protection
+
+Ruleset `protect-main-and-develop` (GitHub → Settings → Rules):
+
+- `main` and `develop` change only through a PR; no force-push, no deletion.
+- Every PR needs 1 approval from the code owner (`.github/CODEOWNERS` → @himanshurai899), stale approvals are dismissed on new pushes, and review threads must be resolved.
+- Repo admins can bypass **only through a PR**, so the owner can merge their own PRs; nobody can push straight to these branches.
+- Workflows from outside contributors need the owner's approval before they run.
+- TODO once CI is on `develop`: add the `check` job as a required status check.
