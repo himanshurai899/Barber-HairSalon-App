@@ -16,6 +16,7 @@ Everything in code is merged to `develop`. These steps need the owner or account
 
 ## Database
 - [ ] `pnpm db:migrate` against the Neon database (3 migrations)
+- [ ] `pnpm db:init-shop`: writes the salon address, phone, hours and booking rules (safe to re-run)
 - [ ] First admin: `pnpm admin:create <email> "<name>" "<password>"` with `DATABASE_URL` and `BETTER_AUTH_SECRET` set
 - [ ] Do NOT run `pnpm db:seed` in production (demo content); enter real data in /admin instead: settings, services, barbers (with phones), hours, offers
 - [ ] Create barber logins in /admin/users

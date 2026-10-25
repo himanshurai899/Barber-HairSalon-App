@@ -1,7 +1,7 @@
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as s from "./schema";
 
-// Demo data only: placeholder barbers, services and hours. Real content comes from the owner (issue #8).
+// Demo data only: placeholder barbers, services and hours. Real shop details: shop-profile.ts, applied with `pnpm db:init-shop`.
 export async function seed(db: PgDatabase<PgQueryResultHKT, typeof s>) {
   await db.insert(s.shopSettings).values({}).onConflictDoNothing();
   await db.insert(s.shopHours).values(
