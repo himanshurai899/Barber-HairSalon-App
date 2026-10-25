@@ -6,7 +6,7 @@
   --ink: #1c1c1a;
   --muted: #6b6862;
   --line: #e7e3dc;
-  --accent: #8a6f4e;
+  --accent: #846949; /* darkened from #8A6F4E for AA text contrast */
   --ok: #3f6b4e;
   --warn: #9a5b2e;
 }

@@ -6,7 +6,7 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Krishna Hair Salon, Gotri, Vadodara",
+  title: { default: "Krishna Hair Salon, Gotri, Vadodara", template: "%s | Krishna Hair Salon" },
   description: "Book your hair appointment at Krishna Hair Salon, Gotri, Vadodara.",
 };
 

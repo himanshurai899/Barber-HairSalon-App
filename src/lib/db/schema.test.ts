@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { createTestDb } from "./test-db";
+import { createLocalDb } from "./local-db";
 import { barbers, bookings, customers, services, shopSettings } from "./schema";
 import { seed } from "./seed";
 
-type Db = Awaited<ReturnType<typeof createTestDb>>;
+type Db = Awaited<ReturnType<typeof createLocalDb>>;
 let db: Db;
 let ids: { b1: number; b2: number; svc: number; cust: number };
 
@@ -23,7 +23,7 @@ function book(barberId: number, start: Date, end: Date, status: "pending" | "app
 }
 
 beforeEach(async () => {
-  db = await createTestDb();
+  db = await createLocalDb();
   const [b1, b2] = await db.insert(barbers).values([{ name: "A" }, { name: "B" }]).returning();
   const [svc] = await db.insert(services).values({ name: "Haircut", durationMin: 60, priceMinor: 30000 }).returning();
   const [cust] = await db.insert(customers).values({ phone: "+919800000000", name: "C" }).returning();
@@ -75,7 +75,7 @@ describe("other constraints", () => {
 });
 
 test("seed script runs on a fresh migrated database", async () => {
-  const fresh = await createTestDb();
+  const fresh = await createLocalDb();
   await seed(fresh);
   expect((await fresh.select().from(services)).length).toBeGreaterThan(0);
   expect((await fresh.select().from(shopSettings)).length).toBe(1);
