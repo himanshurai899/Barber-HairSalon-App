@@ -311,7 +311,7 @@ Defaults used until answered:
 4. *How many barbers besides Hitesh, and is the salon unisex?* (The Navratri post uses 💇‍♂️💇‍♀️.) This decides service categories and whether *Any available* is the default.
 5. *Instagram handle*: the link says `hitesh_.hairartist`, the text says `@hitesh._hairartist`. Which is right?
 6. *Logo, photos, service list with prices and durations*: needed before `feature/public-site`.
-10. Pending TTL **2 hours**; shown to customer ("we'll confirm within 2 hours").
+7. Pending TTL **2 hours**; shown to customer ("we'll confirm within 2 hours").
 8. Existing WhatsApp Business app number will be connected via coexistence (needs Meta Business verification + payment method).
 9. English only in v1.
 10. No payments in v1.
