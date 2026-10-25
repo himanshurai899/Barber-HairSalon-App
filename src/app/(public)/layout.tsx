@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { digits } from "@/lib/format";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { getSettings } from "@/lib/shop";
 
 const DEFAULT_NAME = "Krishna Hair Salon";
@@ -39,11 +40,12 @@ async function Footer() {
         <div className="mx-auto max-w-3xl space-y-1 px-4 py-8 text-sm text-muted">
           <p className="text-ink">{s.name}</p>
           <p>{s.address}</p>
-          <p>
+          <div className="flex items-center justify-between">
             <Link href="/privacy" className="inline-flex min-h-11 items-center underline">
               Privacy
             </Link>
-          </p>
+            <ThemeToggle />
+          </div>
         </div>
       </footer>
       <nav aria-label="Quick actions" className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface p-2 md:hidden">

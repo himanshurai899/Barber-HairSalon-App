@@ -9,10 +9,12 @@
   --accent: #846949; /* darkened from #8A6F4E for AA text contrast */
   --ok: #3f6b4e;
   --warn: #9a5b2e;
+  color-scheme: light;
 }
 
+/* Theme: follows the device (auto) unless the visitor picks light or dark (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #161614;
     --surface: #1f1f1c;
     --ink: #f1eee8;
@@ -21,7 +23,20 @@
     --accent: #c2a47c;
     --ok: #7fb08f;
     --warn: #d09a6a;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+    --bg: #161614;
+    --surface: #1f1f1c;
+    --ink: #f1eee8;
+    --muted: #a09b92;
+    --line: #2e2d29;
+    --accent: #c2a47c;
+    --ok: #7fb08f;
+    --warn: #d09a6a;
+    color-scheme: dark;
 }
 
 @theme inline {
