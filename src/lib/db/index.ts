@@ -19,6 +19,7 @@ export async function getDb(): Promise<Db> {
       const { seed } = await import("./seed");
       const db = await createLocalDb();
       await seed(db);
+      await (await import("./demo-staff")).seedDemoStaff(db);
       return db;
     })();
     return g.__localDb;
