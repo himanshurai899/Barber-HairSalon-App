@@ -9,3 +9,7 @@ test-results/
 !.env.example
 *.log
 .DS_Store
+/build/
+*.pem
+*.tsbuildinfo
+next-env.d.ts

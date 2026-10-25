@@ -9,4 +9,12 @@ Mobile-first website and booking system for a hair salon. Bookings come in from 
 
 **Stack:** Next.js (App Router, TypeScript) · Tailwind CSS · Neon Postgres · Drizzle ORM · Better Auth · WhatsApp Cloud API · Vitest + PGlite · Playwright · Vercel.
 
-**Status:** design phase — code starts on `develop` with `chore/scaffold`.
+**Status:** scaffold done (Next.js, Tailwind, Drizzle, Vitest + PGlite, Playwright, CI). Next: `feature/data-model`.
+
+```bash
+pnpm install
+pnpm dev          # http://localhost:3000
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e
+```
+
+Copy `.env.example` to `.env.local` and fill in values when a feature needs them.
