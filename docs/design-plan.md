@@ -181,7 +181,8 @@ bookings        id, customer_id, barber_id, service_id, during tstzrange,
                 status, source, note, manage_token (unique), price_minor,
                 decided_by?, decided_at?, decision_note?, created_at
 notices         id, kind ('offer'|'notice'), title, body, badge, starts_on, ends_on, active, sort
-wa_inbound      wa_message_id (pk), from_phone, received_at   -- dedupe + greet-once
+wa_inbound      wa_message_id (pk), from_phone, received_at, greeted_at   -- dedupe + greet-once-per-24h (greeted_at = last greeting sent)
+wa_outbound     id, booking_id?, to_phone, template, status (sent|failed|skipped), error, created_at   -- notification log shown in admin
 user / session / account   -- Better Auth tables, user.role in ('admin','barber')
 ```
 
