@@ -4,8 +4,8 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import * as schema from "./schema";
 
-/** In-process Postgres with the real migrations applied. Tests only. */
-export async function createTestDb() {
+/** In-process Postgres with the real migrations applied: tests, and local/e2e runs with USE_PGLITE=1. */
+export async function createLocalDb() {
   const client = new PGlite({ extensions: { btree_gist } });
   const db = drizzle(client, { schema });
   await migrate(db, { migrationsFolder: "drizzle" });

@@ -6,6 +6,7 @@ export default defineConfig({
   projects: [{ name: "mobile", use: { ...devices["Pixel 7"] } }],
   webServer: {
     command: "pnpm build && pnpm start",
+    env: { USE_PGLITE: "1" },
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
