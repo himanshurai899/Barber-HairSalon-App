@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createManualBooking, deleteNotice, overrideStatus, saveNotice, saveSettings } from "@/lib/admin-bookings";
+import type { BookingStatus } from "@/lib/db/schema";
 import {
   addSpecialHours,
   addTimeOff,
@@ -18,10 +20,11 @@ import { requireActionRole } from "@/lib/session";
 
 type State = { error?: string; ok?: boolean } | null;
 
-async function run(path: string, fn: (db: Db, actor: Actor) => Promise<void>): Promise<State> {
+async function run(path: string, fn: (db: Db, actor: Actor) => Promise<unknown>): Promise<State> {
   const actor = await requireActionRole(["admin"]); // throws for anyone else
   try {
-    await fn(await getDb(), actor);
+    const r = (await fn(await getDb(), actor)) as { ok?: boolean; error?: string } | undefined;
+    if (r && r.ok === false) return { error: r.error ?? "Could not save." };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Something went wrong." };
   }
@@ -86,4 +89,35 @@ export async function addTimeOffAction(_: State, fd: FormData) {
 
 export async function deleteTimeOffAction(fd: FormData) {
   await run("/admin/barbers", (db, actor) => deleteTimeOff(db, actor, Number(fd.get("id"))));
+}
+
+export async function manualBookingAction(_: State, fd: FormData) {
+  return run("/admin/bookings", (db, actor) =>
+    createManualBooking(db, actor, {
+      serviceId: fd.get("serviceId"), barberId: fd.get("barberId"), date: fd.get("date"), time: fd.get("time"),
+      name: fd.get("name"), phone: fd.get("phone"), source: fd.get("source"), note: val(fd, "note"),
+    }),
+  );
+}
+
+export async function overrideStatusAction(_: State, fd: FormData) {
+  return run("/admin/bookings", (db, actor) => overrideStatus(db, actor, Number(fd.get("id")), String(fd.get("status")) as BookingStatus));
+}
+
+export async function saveNoticeAction(_: State, fd: FormData) {
+  return run("/admin/notices", (db, actor) =>
+    saveNotice(db, actor, {
+      id: val(fd, "id"), kind: fd.get("kind"), title: fd.get("title"), body: val(fd, "body"), badge: val(fd, "badge"),
+      startsOn: val(fd, "startsOn"), endsOn: val(fd, "endsOn"), active: on(fd, "active"), sort: val(fd, "sort"),
+    }),
+  );
+}
+
+export async function deleteNoticeAction(fd: FormData) {
+  await run("/admin/notices", (db, actor) => deleteNotice(db, actor, Number(fd.get("id"))));
+}
+
+export async function saveSettingsAction(_: State, fd: FormData) {
+  const keys = ["name", "tagline", "address", "lat", "lng", "mapsPlaceId", "phone", "whatsappNumber", "timezone", "currency", "greetingText", "pendingTtlMin", "slotStepMin", "minNoticeMin", "horizonDays", "maxOpenPerPhone"];
+  return run("/admin/settings", (db, actor) => saveSettings(db, actor, Object.fromEntries(keys.map((k) => [k, fd.get(k) ?? undefined]))));
 }
