@@ -1,5 +1,5 @@
 // Read-side queries for the public pages.
-import { and, asc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { getDb, type Db } from "./db";
 import * as s from "./db/schema";
 import { todayIn } from "./format";
@@ -64,12 +64,15 @@ export async function getUpcomingTimeOff(horizonDays = 14) {
     .orderBy(sql`lower(${s.timeOff.during})`);
 }
 
-export async function getBarbersForService(serviceId: number) {
+/** Active barbers who offer every one of the services. */
+export async function getBarbersForServices(serviceIds: number[]) {
   const db = await getDb();
   return db
     .select({ id: s.barbers.id, name: s.barbers.name })
     .from(s.barbers)
     .innerJoin(s.barberServices, eq(s.barberServices.barberId, s.barbers.id))
-    .where(and(eq(s.barbers.active, true), eq(s.barberServices.serviceId, serviceId)))
+    .where(and(eq(s.barbers.active, true), inArray(s.barberServices.serviceId, serviceIds)))
+    .groupBy(s.barbers.id)
+    .having(sql`count(distinct ${s.barberServices.serviceId}) = ${serviceIds.length}`)
     .orderBy(asc(s.barbers.sort), asc(s.barbers.id));
 }

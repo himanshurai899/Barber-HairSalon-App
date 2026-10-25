@@ -94,7 +94,7 @@ export async function deleteTimeOffAction(fd: FormData) {
 export async function manualBookingAction(_: State, fd: FormData) {
   return run("/admin/bookings", (db, actor) =>
     createManualBooking(db, actor, {
-      serviceId: fd.get("serviceId"), barberId: fd.get("barberId"), date: fd.get("date"), time: fd.get("time"),
+      serviceIds: fd.getAll("serviceIds"), barberId: fd.get("barberId"), date: fd.get("date"), time: fd.get("time"),
       name: fd.get("name"), phone: fd.get("phone"), source: fd.get("source"), note: val(fd, "note"),
     }),
   );

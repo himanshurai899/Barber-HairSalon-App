@@ -10,6 +10,8 @@ test("admin adds a phone booking and a notice appears on the landing page", asyn
   await page.goto("/admin/bookings");
   const name = `Caller ${Date.now()}`;
   const manual = page.locator("section").filter({ hasText: "Phone or walk-in booking" });
+  await manual.getByLabel(/^Haircut \(/).check();
+  await manual.getByLabel(/^Beard trim/).check();
   await manual.getByLabel("Date").fill("2030-01-07");
   await manual.getByLabel("Time").fill("15:00");
   await manual.getByLabel("Customer name").fill(name);
@@ -18,6 +20,7 @@ test("admin adds a phone booking and a notice appears on the landing page", asyn
   await expect(manual.getByRole("status")).toContainText("Saved");
   await page.goto("/admin/bookings?status=approved");
   await expect(page.getByText(name).first()).toBeVisible();
+  await expect(page.getByText("Haircut + Beard trim with").first()).toBeVisible();
 
   await page.goto("/admin/notices");
   const title = `Closed for repairs ${Date.now()}`;

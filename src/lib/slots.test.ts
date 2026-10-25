@@ -8,7 +8,7 @@ const ist = (hhmm: string, date = "2026-11-02") => new Date(`${date}T${hhmm}:00+
 function input(over: Partial<SlotInput> = {}): SlotInput {
   return {
     date: "2026-11-02",
-    service: { id: 1, durationMin: 30 },
+    services: [{ id: 1, durationMin: 30 }],
     barbers: [{ id: 1, sort: 1, active: true, serviceIds: [1] }],
     shopHours: [{ weekday: 1, opens: "10:00", closes: "12:00" }],
     specialHours: [],
@@ -26,11 +26,11 @@ const t = (...h: string[]) => h.map((x) => ist(x).toISOString());
 describe("getSlots", () => {
   test("walks the window in steps and keeps starts where the service fits", () => {
     expect(starts(input())).toEqual(t("10:00", "10:30", "11:00", "11:30"));
-    expect(starts(input({ service: { id: 1, durationMin: 60 } }))).toEqual(t("10:00", "10:30", "11:00"));
+    expect(starts(input({ services: [{ id: 1, durationMin: 60 }] }))).toEqual(t("10:00", "10:30", "11:00"));
   });
 
   test("service longer than the window gives nothing", () => {
-    expect(starts(input({ service: { id: 1, durationMin: 150 } }))).toEqual([]);
+    expect(starts(input({ services: [{ id: 1, durationMin: 150 }] }))).toEqual([]);
   });
 
   test("closed weekday gives nothing", () => {
@@ -94,7 +94,7 @@ describe("getSlots", () => {
 
   test("a booking overlapping only part of a long service still blocks it", () => {
     const i = input({
-      service: { id: 1, durationMin: 60 },
+      services: [{ id: 1, durationMin: 60 }],
       bookings: [{ barberId: 1, start: ist("11:00"), end: ist("11:30"), status: "approved" }],
     });
     expect(starts(i)).toEqual(t("10:00"));

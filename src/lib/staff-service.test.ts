@@ -18,7 +18,7 @@ const admin: Actor = { userId: "u0", role: "admin", barberId: null };
 async function book(over: Partial<Parameters<typeof createBooking>[1]> = {}) {
   const r = await createBooking(
     db,
-    { serviceId: 1, barber: 1, date: "2026-11-02", time: "10:00", name: "Asha", phone: "98250 11111", ...over },
+    { serviceIds: [1], barber: 1, date: "2026-11-02", time: "10:00", name: "Asha", phone: "98250 11111", ...over },
     now,
   );
   if (!r.ok) throw new Error(`setup failed: ${r.error}`);
@@ -56,7 +56,7 @@ describe("decideBooking", () => {
   test("a rejected booking frees the slot again", async () => {
     const b = await book();
     await decideBooking(db, hitesh, b.id, "rejected", undefined, now);
-    expect((await createBooking(db, { serviceId: 1, barber: 1, date: "2026-11-02", time: "10:00", name: "B", phone: "98250 22222" }, now)).ok).toBe(true);
+    expect((await createBooking(db, { serviceIds: [1], barber: 1, date: "2026-11-02", time: "10:00", name: "B", phone: "98250 22222" }, now)).ok).toBe(true);
   });
 
   test("a barber cannot decide another barber's booking, admin can", async () => {

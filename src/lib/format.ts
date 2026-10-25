@@ -7,6 +7,20 @@ export function money(minor: number, currency = "INR"): string {
   );
 }
 
+/** 75 -> "1 h 15 min", 120 -> "2 h", 45 -> "45 min". */
+export function duration(min: number): string {
+  const [h, m] = [Math.floor(min / 60), min % 60];
+  return [h && `${h} h`, (m || !h) && `${m} min`].filter(Boolean).join(" ");
+}
+
+/** Running total for the service picker: "2 services, 1 h 15 min, ₹450". Price is left out when every price is 0. */
+export function selectionSummary(items: { durationMin: number; priceMinor: number }[], currency = "INR"): string {
+  if (!items.length) return "No services selected";
+  const mins = items.reduce((n, x) => n + x.durationMin, 0);
+  const price = items.reduce((n, x) => n + x.priceMinor, 0);
+  return [`${items.length} service${items.length > 1 ? "s" : ""}`, duration(mins), price > 0 && money(price, currency)].filter(Boolean).join(", ");
+}
+
 /** "14:30[:00]" to "2:30 pm". */
 export function clock(t: string): string {
   const [h, m] = t.split(":").map(Number);

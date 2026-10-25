@@ -16,7 +16,7 @@ export async function submitBooking(_prev: BookingFormState, fd: FormData): Prom
   const phone = str(fd, "phone");
   const db = await getDb();
   const r = await createBooking(db, {
-    serviceId: str(fd, "service") as unknown as number,
+    serviceIds: str(fd, "services").split(",").filter(Boolean) as unknown as number[], // zod coerces the ids
     barber: str(fd, "barber") as "any",
     date: str(fd, "date"),
     time: str(fd, "time"),

@@ -2,6 +2,7 @@
 // a failure is logged to wa_outbound (visible in admin) and never touches the booking.
 import parsePhoneNumber from "libphonenumber-js";
 import { eq } from "drizzle-orm";
+import { withServices } from "./booking-lines";
 import type { Db } from "./db";
 import * as s from "./db/schema";
 import { inZone } from "./format";
@@ -14,6 +15,8 @@ async function load(db: Db, bookingId: number) {
   const [b] = await db
     .select({
       token: s.bookings.manageToken,
+      id: s.bookings.id,
+      priceMinor: s.bookings.priceMinor,
       during: s.bookings.during,
       decisionNote: s.bookings.decisionNote,
       service: s.services.name,
@@ -27,7 +30,7 @@ async function load(db: Db, bookingId: number) {
     .innerJoin(s.customers, eq(s.customers.id, s.bookings.customerId))
     .innerJoin(s.barbers, eq(s.barbers.id, s.bookings.barberId))
     .where(eq(s.bookings.id, bookingId));
-  return b;
+  return (await withServices(db, [b]))[0]; // service = every service joined with " + "
 }
 
 const digits = (phone: string | null) => {

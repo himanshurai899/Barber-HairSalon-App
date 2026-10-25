@@ -2,6 +2,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import parsePhoneNumber from "libphonenumber-js";
 import { z } from "zod";
+import { insertBooking, loadBookableServices, withServices } from "./booking-lines";
 import { transition } from "./bookings";
 import type { Db } from "./db";
 import * as s from "./db/schema";
@@ -22,11 +23,11 @@ export async function expirePending(db: Db, ttlMin: number, now: Date) {
 const addDay = (date: string) => new Date(Date.parse(`${date}T12:00:00Z`) + 24 * 60 * MIN).toISOString().slice(0, 10);
 
 /** Loads everything getSlots needs for one shop-local date. */
-async function loadSlotInput(db: Db, date: string, serviceId: number, now: Date): Promise<SlotInput | null> {
+async function loadSlotInput(db: Db, date: string, serviceIds: number[], now: Date) {
   const settings = await loadSettings(db);
   await expirePending(db, settings.pendingTtlMin, now);
-  const [service] = await db.select().from(s.services).where(and(eq(s.services.id, serviceId), eq(s.services.active, true)));
-  if (!service) return null;
+  const svcs = await loadBookableServices(db, serviceIds);
+  if (!svcs) return null;
   const dayS = zonedToUtc(date, "00:00", settings.timezone).toISOString();
   const dayE = zonedToUtc(addDay(date), "00:00", settings.timezone).toISOString();
   const day = sql`tstzrange(${dayS}::timestamptz, ${dayE}::timestamptz)`;
@@ -42,9 +43,9 @@ async function loadSlotInput(db: Db, date: string, serviceId: number, now: Date)
       .from(s.bookings)
       .where(and(inArray(s.bookings.status, [...open]), sql`${s.bookings.during} && ${day}`)),
   ]);
-  return {
+  const slotInput: SlotInput = {
     date,
-    service: { id: service.id, durationMin: service.durationMin },
+    services: svcs.map((v) => ({ id: v.id, durationMin: v.durationMin })),
     barbers: barbers.map((b) => ({
       id: b.id,
       sort: b.sort,
@@ -64,18 +65,24 @@ async function loadSlotInput(db: Db, date: string, serviceId: number, now: Date)
     },
     now,
   };
+  return { slotInput, svcs };
 }
 
 export async function getAvailableSlots(
   db: Db,
-  a: { serviceId: number; date: string; now?: Date },
+  a: { serviceIds: number[]; date: string; now?: Date },
 ): Promise<Slot[]> {
-  const input = await loadSlotInput(db, a.date, a.serviceId, a.now ?? new Date());
-  return input ? getSlots(input) : [];
+  if (!a.serviceIds.length) return [];
+  const loaded = await loadSlotInput(db, a.date, a.serviceIds, a.now ?? new Date());
+  return loaded ? getSlots(loaded.slotInput) : [];
 }
 
 const input = z.object({
-  serviceId: z.coerce.number().int().positive(),
+  serviceIds: z
+    .array(z.coerce.number().int().positive())
+    .min(1)
+    .max(10)
+    .refine((ids) => new Set(ids).size === ids.length), // no duplicates
   barber: z.union([z.literal("any"), z.coerce.number().int().positive()]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
@@ -99,10 +106,10 @@ export async function createBooking(db: Db, raw: BookingInput, now = new Date())
   if (!parsed.success || !phone?.isValid()) return fail("invalid", "Please check your name and phone number.");
   const d = parsed.data;
 
-  const si = await loadSlotInput(db, d.date, d.serviceId, now);
-  if (!si) return fail("unavailable", "That service is not available.");
+  const loaded = await loadSlotInput(db, d.date, d.serviceIds, now);
+  if (!loaded) return fail("unavailable", "One of those services is not available.");
+  const { slotInput: si, svcs } = loaded;
   const start = zonedToUtc(d.date, d.time, si.settings.timezone);
-  const end = new Date(start.getTime() + si.service.durationMin * MIN);
 
   // Customer by phone (the key); name follows their latest booking.
   const [customer] = await db
@@ -131,22 +138,9 @@ export async function createBooking(db: Db, raw: BookingInput, now = new Date())
     d.barber === "any"
       ? pickBarber({ barberIds: candidates, barbers: si.barbers, bookings: si.bookings, date: d.date, timezone: si.settings.timezone })
       : d.barber;
-  const [service] = await db.select().from(s.services).where(eq(s.services.id, d.serviceId));
 
   try {
-    const [row] = await db
-      .insert(s.bookings)
-      .values({
-        customerId: customer.id,
-        barberId,
-        serviceId: service.id,
-        during: { start, end },
-        status: "pending",
-        source: d.source,
-        priceMinor: service.priceMinor,
-        createdAt: now,
-      })
-      .returning({ token: s.bookings.manageToken, id: s.bookings.id });
+    const row = await insertBooking(db, { customerId: customer.id, barberId, status: "pending", source: d.source, createdAt: now }, start, svcs);
     return { ok: true, token: row.token, id: row.id, created: true };
   } catch (e) {
     // The database is the final referee: a concurrent request got there first.
@@ -166,7 +160,7 @@ export async function getBookingByToken(db: Db, token: string, now = new Date())
       during: s.bookings.during,
       priceMinor: s.bookings.priceMinor,
       decisionNote: s.bookings.decisionNote,
-      service: s.services.name,
+      service: s.services.name, // primary; every service: withServices
       barber: s.barbers.name,
       customer: s.customers.name,
     })
@@ -175,7 +169,7 @@ export async function getBookingByToken(db: Db, token: string, now = new Date())
     .innerJoin(s.barbers, eq(s.barbers.id, s.bookings.barberId))
     .innerJoin(s.customers, eq(s.customers.id, s.bookings.customerId))
     .where(eq(s.bookings.manageToken, token));
-  return row ?? null;
+  return row ? (await withServices(db, [row]))[0] : null;
 }
 
 export async function cancelBooking(
