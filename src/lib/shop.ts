@@ -1,11 +1,12 @@
 // Read-side queries for the public pages.
 import { and, asc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
-import { getDb } from "./db";
+import { getDb, type Db } from "./db";
 import * as s from "./db/schema";
 import { todayIn } from "./format";
 
-export async function getSettings() {
-  const db = await getDb();
+export const getSettings = async () => loadSettings(await getDb());
+
+export async function loadSettings(db: Db) {
   let [row] = await db.select().from(s.shopSettings);
   if (!row) {
     await db.insert(s.shopSettings).values({}).onConflictDoNothing();
@@ -61,4 +62,14 @@ export async function getUpcomingTimeOff(horizonDays = 14) {
     .innerJoin(s.barbers, eq(s.barbers.id, s.timeOff.barberId))
     .where(and(eq(s.barbers.active, true), sql`upper(${s.timeOff.during}) > now() and lower(${s.timeOff.during}) < now() + ${`${horizonDays} days`}::interval`))
     .orderBy(sql`lower(${s.timeOff.during})`);
+}
+
+export async function getBarbersForService(serviceId: number) {
+  const db = await getDb();
+  return db
+    .select({ id: s.barbers.id, name: s.barbers.name })
+    .from(s.barbers)
+    .innerJoin(s.barberServices, eq(s.barberServices.barberId, s.barbers.id))
+    .where(and(eq(s.barbers.active, true), eq(s.barberServices.serviceId, serviceId)))
+    .orderBy(asc(s.barbers.sort), asc(s.barbers.id));
 }
