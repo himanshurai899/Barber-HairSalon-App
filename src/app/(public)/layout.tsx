@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { digits } from "@/lib/format";
+import { digits, whatsappLink } from "@/lib/format";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getSettings } from "@/lib/shop";
 
@@ -54,7 +54,7 @@ async function Footer() {
             Book
           </Link>
           {s.whatsappNumber && (
-            <a href={`https://wa.me/${digits(s.whatsappNumber)}`} className={bar}>
+            <a href={whatsappLink(s.whatsappNumber, s.name)} className={bar}>
               WhatsApp
             </a>
           )}
