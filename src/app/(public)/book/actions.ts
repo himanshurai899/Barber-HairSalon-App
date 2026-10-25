@@ -1,8 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createBooking } from "@/lib/booking-service";
 import { getDb } from "@/lib/db";
+import { notifyNewRequest } from "@/lib/notify";
+import { siteUrl } from "@/lib/site";
 
 export type BookingFormState = { error?: string; name?: string; phone?: string } | null;
 
@@ -11,7 +14,8 @@ const str = (fd: FormData, k: string) => String(fd.get(k) ?? "");
 export async function submitBooking(_prev: BookingFormState, fd: FormData): Promise<BookingFormState> {
   const name = str(fd, "name");
   const phone = str(fd, "phone");
-  const r = await createBooking(await getDb(), {
+  const db = await getDb();
+  const r = await createBooking(db, {
     serviceId: str(fd, "service") as unknown as number,
     barber: str(fd, "barber") as "any",
     date: str(fd, "date"),
@@ -23,5 +27,6 @@ export async function submitBooking(_prev: BookingFormState, fd: FormData): Prom
     source: str(fd, "source") === "whatsapp" ? "whatsapp" : "web",
   });
   if (!r.ok) return { error: r.message, name, phone };
+  if (r.created) after(() => notifyNewRequest(db, r.id, { siteUrl: siteUrl() })); // after the response, never blocks or rolls back
   redirect(`/b/${r.token}`);
 }

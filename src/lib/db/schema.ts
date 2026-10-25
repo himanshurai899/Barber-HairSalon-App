@@ -251,3 +251,18 @@ export const waInbound = pgTable(
   },
   (t) => [index("wa_inbound_phone_idx").on(t.fromPhone, t.receivedAt)],
 );
+
+// Outbound WhatsApp template messages, so failures are visible in admin.
+export const waOutbound = pgTable(
+  "wa_outbound",
+  {
+    id: serial("id").primaryKey(),
+    bookingId: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    toPhone: text("to_phone"),
+    template: text("template").notNull(),
+    status: text("status", { enum: ["sent", "failed", "skipped"] }).notNull(),
+    error: text("error"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("wa_outbound_created_idx").on(t.createdAt)],
+);

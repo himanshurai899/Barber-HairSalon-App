@@ -1,7 +1,6 @@
 import { getDb } from "@/lib/db";
+import { siteUrl } from "@/lib/site";
 import { handlePost, handleVerify } from "@/lib/whatsapp-webhook";
-
-const siteUrl = () => process.env.SITE_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
 export async function GET(req: Request) {
   const r = handleVerify(new URL(req.url), process.env.WA_VERIFY_TOKEN ?? "");
