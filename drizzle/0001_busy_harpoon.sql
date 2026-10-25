@@ -1,0 +1,1 @@
+ALTER TABLE "wa_inbound" ADD COLUMN "greeted_at" timestamp with time zone;

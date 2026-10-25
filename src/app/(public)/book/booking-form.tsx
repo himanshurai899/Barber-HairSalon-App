@@ -5,11 +5,11 @@ import { submitBooking } from "./actions";
 
 const field = "mt-1 block min-h-11 w-full rounded-md border border-line bg-surface px-3";
 
-export function BookingForm(props: { service: number; barber: string; date: string; time: string }) {
+export function BookingForm(props: { service: number; barber: string; date: string; time: string; source: string }) {
   const [state, action, pending] = useActionState(submitBooking, null);
   return (
     <form action={action} className="space-y-4">
-      {(["service", "barber", "date", "time"] as const).map((k) => (
+      {(["service", "barber", "date", "time", "source"] as const).map((k) => (
         <input key={k} type="hidden" name={k} value={props[k]} />
       ))}
       {/* Honeypot: hidden from people, bots fill it in. */}

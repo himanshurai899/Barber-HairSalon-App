@@ -10,7 +10,7 @@ import { BookingForm } from "./booking-form";
 export const metadata: Metadata = { title: "Book a slot", description: "Request an appointment at Krishna Hair Salon." };
 
 // Step state lives in the URL (ids and times only, never name or phone) so the back button works.
-type Params = { service?: string; barber?: string; date?: string; t?: string };
+type Params = { service?: string; barber?: string; date?: string; t?: string; src?: string };
 
 export default function BookPage({ searchParams }: PageProps<"/book">) {
   return (
@@ -49,7 +49,7 @@ async function Flow({ p }: { p: Params }) {
         <ul className="space-y-2">
           {services.map((x) => (
             <li key={x.id}>
-              <Link href={href({ service: String(x.id) })} className={`${chip} w-full justify-between`}>
+              <Link href={href({ service: String(x.id), src: p.src })} className={`${chip} w-full justify-between`}>
                 <span>
                   {x.name} <span className="text-sm text-muted">{x.durationMin} min</span>
                 </span>
@@ -67,19 +67,19 @@ async function Flow({ p }: { p: Params }) {
   if (!barber) {
     return (
       <section aria-labelledby="step" className="space-y-3">
-        <Back to={{}} label="Back" />
+        <Back to={{ src: p.src }} label="Back" />
         <h2 id="step" className="font-medium">
           2. Choose a barber
         </h2>
         <ul className="space-y-2">
           <li>
-            <Link href={href({ service: p.service, barber: "any" })} className={`${chip} w-full`}>
+            <Link href={href({ service: p.service, barber: "any", src: p.src })} className={`${chip} w-full`}>
               Any available
             </Link>
           </li>
           {barbers.map((b) => (
             <li key={b.id}>
-              <Link href={href({ service: p.service, barber: String(b.id) })} className={`${chip} w-full`}>
+              <Link href={href({ service: p.service, barber: String(b.id), src: p.src })} className={`${chip} w-full`}>
                 {b.name}
               </Link>
             </li>
@@ -100,7 +100,7 @@ async function Flow({ p }: { p: Params }) {
   );
   const timeOf = (d: Date) => inZone(d, tz, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   const barberName = barber === "any" ? "Any available" : barber.name;
-  const base = { service: p.service, barber: p.barber };
+  const base = { service: p.service, barber: p.barber, src: p.src };
   const picked = slots.find((s) => timeOf(s.start) === p.t);
 
   if (picked && p.t) {
@@ -120,14 +120,14 @@ async function Flow({ p }: { p: Params }) {
           <dt className="text-muted">Price</dt>
           <dd>{money(service.priceMinor, settings.currency)}</dd>
         </dl>
-        <BookingForm service={service.id} barber={String(p.barber)} date={date} time={p.t} />
+        <BookingForm service={service.id} barber={String(p.barber)} date={date} time={p.t} source={p.src === "wa" ? "whatsapp" : "web"} />
       </section>
     );
   }
 
   return (
     <section aria-labelledby="step" className="space-y-4">
-      <Back to={{ service: p.service }} label="Change barber" />
+      <Back to={{ service: p.service, src: p.src }} label="Change barber" />
       <h2 id="step" className="font-medium">
         3. Pick a day and time
       </h2>

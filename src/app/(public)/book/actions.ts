@@ -20,6 +20,7 @@ export async function submitBooking(_prev: BookingFormState, fd: FormData): Prom
     phone,
     waOptIn: fd.get("waOptIn") === "on",
     website: str(fd, "website"),
+    source: str(fd, "source") === "whatsapp" ? "whatsapp" : "web",
   });
   if (!r.ok) return { error: r.message, name, phone };
   redirect(`/b/${r.token}`);

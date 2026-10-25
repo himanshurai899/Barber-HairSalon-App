@@ -247,6 +247,7 @@ export const waInbound = pgTable(
     waMessageId: text("wa_message_id").primaryKey(),
     fromPhone: text("from_phone").notNull(),
     receivedAt: ts("received_at").notNull().defaultNow(),
+    greetedAt: ts("greeted_at"), // set when we sent the booking-link greeting for this message
   },
   (t) => [index("wa_inbound_phone_idx").on(t.fromPhone, t.receivedAt)],
 );
