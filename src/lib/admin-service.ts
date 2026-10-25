@@ -8,7 +8,7 @@ import { loadSettings } from "./shop";
 import { zonedToUtc } from "./slots";
 
 /** First readable message of a failed parse. */
-function check<T extends z.ZodType>(schema: T, data: unknown): z.output<T> {
+export function check<T extends z.ZodType>(schema: T, data: unknown): z.output<T> {
   const r = schema.safeParse(data);
   if (!r.success) {
     const i = r.error.issues[0];
@@ -17,7 +17,7 @@ function check<T extends z.ZodType>(schema: T, data: unknown): z.output<T> {
   return r.data;
 }
 
-const admin = (actor: Actor | null) => requireRole(actor, ["admin"]);
+export const admin = (actor: Actor | null) => requireRole(actor, ["admin"]);
 const text = (max: number) => z.string().trim().max(max).optional().transform((v) => v || null);
 const flag = z.boolean().default(true);
 const intSort = z.coerce.number().int().min(-1000).max(1000).default(0);
