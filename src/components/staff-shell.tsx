@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { logout } from "@/app/login/actions";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { Role } from "@/lib/access";
 import { requirePage } from "@/lib/session";
 
@@ -18,6 +19,7 @@ async function Shell({ roles, links, children }: { roles: Role[]; links: [string
             ))}
           </nav>
           <form action={logout} className="flex items-center gap-2 text-sm text-muted">
+            <ThemeToggle />
             <span className="capitalize">{actor.role}</span>
             <button type="submit" className="inline-flex min-h-11 items-center underline">
               Sign out
