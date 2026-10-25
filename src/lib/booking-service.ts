@@ -88,7 +88,7 @@ const input = z.object({
 
 export type BookingInput = z.input<typeof input>;
 export type CreateResult =
-  | { ok: true; token: string }
+  | { ok: true; token: string; id: number; created: boolean }
   | { ok: false; error: "invalid" | "unavailable" | "too_many"; message: string };
 
 const fail = (error: "invalid" | "unavailable" | "too_many", message: string): CreateResult => ({ ok: false, error, message });
@@ -117,7 +117,7 @@ export async function createBooking(db: Db, raw: BookingInput, now = new Date())
     .where(and(eq(s.bookings.customerId, customer.id), inArray(s.bookings.status, [...open])));
   // Double submit: the same customer asking for the same start again gets the booking they already have.
   const same = mine.find((b) => b.during.start.getTime() === start.getTime());
-  if (same) return { ok: true, token: same.manageToken };
+  if (same) return { ok: true, token: same.manageToken, id: same.id, created: false };
   const settings = await loadSettings(db);
   if (mine.filter((b) => b.during.end > now).length >= settings.maxOpenPerPhone) {
     return fail("too_many", "You already have the maximum number of upcoming bookings. Please cancel one or call us.");
@@ -146,8 +146,8 @@ export async function createBooking(db: Db, raw: BookingInput, now = new Date())
         priceMinor: service.priceMinor,
         createdAt: now,
       })
-      .returning({ token: s.bookings.manageToken });
-    return { ok: true, token: row.token };
+      .returning({ token: s.bookings.manageToken, id: s.bookings.id });
+    return { ok: true, token: row.token, id: row.id, created: true };
   } catch (e) {
     // The database is the final referee: a concurrent request got there first.
     const code = (e as { code?: string; cause?: { code?: string } }).code ?? (e as { cause?: { code?: string } }).cause?.code;

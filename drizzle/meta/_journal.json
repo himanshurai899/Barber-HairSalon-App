@@ -15,6 +15,13 @@
       "when": 1792963864030,
       "tag": "0001_busy_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792964307149,
+      "tag": "0002_complex_stepford_cuckoos",
+      "breakpoints": true
     }
   ]
 }

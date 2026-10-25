@@ -17,3 +17,11 @@ test("admin adds a service that shows on the public services page", async ({ pag
   await page.goto("/services");
   await expect(page.getByText(name)).toBeVisible();
 });
+
+test("admin dashboard shows the WhatsApp message log", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("admin@demo.test");
+  await page.getByLabel("Password").fill("demo-password-1");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "WhatsApp messages" })).toBeVisible();
+});

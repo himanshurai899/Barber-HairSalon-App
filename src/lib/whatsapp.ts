@@ -37,3 +37,18 @@ export function sendCtaUrl(m: CtaMessage) {
     },
   });
 }
+
+export type TemplateMessage = { to: string; template: string; params: string[] };
+
+/** Pre-approved utility template (works outside the 24h window). Body variables only. */
+export function sendTemplate(m: TemplateMessage) {
+  return post({
+    to: m.to,
+    type: "template",
+    template: {
+      name: m.template,
+      language: { code: "en" },
+      components: [{ type: "body", parameters: m.params.map((text) => ({ type: "text", text })) }],
+    },
+  });
+}
