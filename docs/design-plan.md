@@ -14,6 +14,25 @@ Status: **Draft v0.1** · 2026-10-25 · Research notes: [research.md](research.m
 
 **Non-goals for v1** (add when asked): online payments/deposits, customer accounts, loyalty, multi-branch, IVR/telephony automation, chatbot conversations, inventory, payroll.
 
+### Client: Krishna Hair Salon, Gotri, Vadodara
+
+Taken from the salon's real WhatsApp broadcasts. They drive several decisions below.
+
+| What they post today | What the product does |
+|---|---|
+| "Book before visiting… WhatsApp or call me" (repeated in most messages) | Same message, plus a booking link, goes out as the automatic WhatsApp greeting |
+| Owner (Hitesh) away 21–23 Sep and 18–19 Oct, **salon stays open** | Barber-level **time off**: that barber's slots disappear, other barbers stay bookable, the site shows a notice automatically |
+| Navratri special timings 11–19 Oct, 9 AM–8 PM | **Special hours** by date range override the weekly hours, for slots and for the hours table |
+| Instagram @hitesh._hairartist, transformations, trends | Instagram link in header/footer and on the barber's profile. No feed embed (heavy, breaks often) |
+| Notices and offers sent as broadcasts | **Notices & offers** in admin show on the landing page, with a **Copy for WhatsApp** button that formats the same text (bold, emoji) for pasting into the existing broadcast list |
+| Tagline "Where Style Meets Perfection", ❤️🙏✨ tone | The site stays calm and minimal. The warm tone lives in the copy and WhatsApp texts, not in the UI |
+
+Default greeting (editable in settings):
+
+> Hi {name} 👋 Thanks for messaging *Krishna Hair Salon*, Gotri.
+> To avoid waiting, book your slot here 👇 and we'll confirm on WhatsApp.
+> [ Book a slot ]
+
 ## 2. Roles
 
 | Role | Can do | Login |
@@ -47,7 +66,7 @@ flowchart LR
 
 | Route | Content |
 |---|---|
-| `/` | Hero (name, one line, *Book* + *WhatsApp*), open-now badge, **offers**, top services, barbers, **Visit** block (address, map, *Directions*, *Share location*, hours), footer |
+| `/` | Notice bar (active notices + auto "Hitesh unavailable 18–19 Oct" from time off), hero (name, tagline, *Book* + *WhatsApp*), open-now badge (respects special hours), **offers**, top services, barbers (with Instagram), **Visit** block (address, map, *Directions*, *Share location*, hours incl. upcoming special hours), footer |
 | `/services` | All services with duration and price, grouped by category |
 | `/book` | Step flow: service → barber (default *Any available*) → date + time → name/phone → review. Step state lives in URL params (no PII), so back button works |
 | `/b/[token]` | Booking status (pending / approved / …), details, *Cancel*, *Get directions* |
@@ -58,7 +77,7 @@ Sticky bottom bar on phones: **Book · WhatsApp · Call**.
 **Staff** — `/staff`: pending requests (oldest first, approve/reject with optional reason), today + upcoming schedule.
 
 **Admin** — `/admin`:
-`dashboard` (today, pending count) · `bookings` (filter, manual booking, override status) · `barbers` (profile, photo, services offered, login link) · `hours` (weekly rules per barber, breaks, time off) · `services` · `offers` (title, text, valid from/to) · `settings` (shop name, address, lat/lng, phone, WhatsApp number, greeting text, timezone, booking rules) · `users`.
+`dashboard` (today, pending count) · `bookings` (filter, manual booking, override status) · `barbers` (profile, photo, Instagram, services offered, login link) · `hours` (weekly shop hours, **special hours** by date range, weekly rules per barber, breaks, time off) · `services` · `notices` (offers and announcements, valid from/to, *Copy for WhatsApp*) · `settings` (shop name, address, lat/lng, phone, WhatsApp number, greeting text, timezone, booking rules) · `users`.
 
 ## 5. Visual design
 
@@ -151,7 +170,8 @@ shop_settings   (single row) name, tagline, address, lat, lng, maps_place_id, ph
                 whatsapp_number, timezone, currency, greeting_text, pending_ttl_min,
                 slot_step_min, min_notice_min, horizon_days, max_open_per_phone
 shop_hours      weekday, opens, closes                 -- display + outer bound
-barbers         id, name, phone, photo_url, bio, active, sort, user_id?
+special_hours   id, starts_on, ends_on, opens?, closes?, closed, label   -- e.g. Navratri 9–8; overrides shop_hours
+barbers         id, name, phone, photo_url, bio, instagram, active, sort, user_id?
 services        id, name, category, duration_min, price_minor, active, sort
 barber_services barber_id, service_id                  -- who does what
 availability    id, barber_id, weekday, start_time, end_time   -- many rows/day = breaks
@@ -160,7 +180,7 @@ customers       id, phone (E.164, unique), name, wa_opt_in, created_at
 bookings        id, customer_id, barber_id, service_id, during tstzrange,
                 status, source, note, manage_token (unique), price_minor,
                 decided_by?, decided_at?, decision_note?, created_at
-offers          id, title, body, badge, starts_on, ends_on, active, sort
+notices         id, kind ('offer'|'notice'), title, body, badge, starts_on, ends_on, active, sort
 wa_inbound      wa_message_id (pk), from_phone, received_at   -- dedupe + greet-once
 user / session / account   -- Better Auth tables, user.role in ('admin','barber')
 ```
@@ -203,13 +223,13 @@ Pure function, no I/O — the main TDD target:
 getSlots({ date, service, barbers, availability, timeOff, bookings, settings, now }) → [{ start, barberIds[] }]
 ```
 
-1. For each barber who offers the service: working windows for that weekday ∩ shop hours.
+1. Shop hours for the date = `special_hours` covering it, else weekly `shop_hours` (`closed` → no slots). For each barber who offers the service: working windows for that weekday ∩ shop hours.
 2. Subtract time off and blocking bookings (pending + approved).
 3. Walk each free window in `slot_step_min` steps; keep starts where `start + duration` fits.
 4. Drop starts before `now + min_notice_min` and beyond `horizon_days`.
 5. *Any available*: union across barbers; on submit pick the barber with the fewest bookings that day (tie → sort order).
 
-Edge cases covered by tests: DST/timezone boundaries, service longer than window, back-to-back bookings, break in the middle of the day, barber inactive, booking ending exactly at slot start (ranges are `[)`).
+Edge cases covered by tests: special hours overriding a weekday, barber on time off while others are bookable, DST/timezone boundaries, service longer than window, back-to-back bookings, break in the middle of the day, barber inactive, booking ending exactly at slot start (ranges are `[)`).
 
 ## 10. WhatsApp integration
 
@@ -271,7 +291,7 @@ Each line is one branch off `develop` (see [CONTRIBUTING.md](../CONTRIBUTING.md)
 | 0 | `chore/scaffold` | setup | Next.js + Tailwind + Drizzle + Vitest + Playwright + CI green, deploys to Vercel preview |
 | 1 | `feature/data-model` | TDD | Schema + migrations; overlap constraint test passes |
 | 2 | `feature/slot-engine` | TDD | `getSlots` spec cases pass |
-| 3 | `feature/public-site` | minor | Landing (offers, visit, share location), services, privacy |
+| 3 | `feature/public-site` | minor | Landing (notices, offers, visit, share location, Instagram), services, privacy |
 | 4 | `feature/booking-flow` | TDD | `/book` → pending booking → `/b/[token]`, cancel works |
 | 5 | `feature/staff-auth` | TDD | Login, roles, `/staff` approve/reject |
 | 6 | `feature/admin` | mixed | CRUD for barbers, services, hours, time off, offers, settings, manual booking |
@@ -279,16 +299,19 @@ Each line is one branch off `develop` (see [CONTRIBUTING.md](../CONTRIBUTING.md)
 | 8 | `feature/whatsapp-notify` | TDD | Barber alert + customer confirm/decline templates |
 | — | `release/0.1.0` | release | E2E green on preview, merged to `main`, tagged |
 
-Later candidates: reminder template the day before, `.ics` add-to-calendar, gallery (Vercel Blob), Hindi/regional language, missed-call → WhatsApp link (Exotel/Twilio), deposits (Razorpay/Stripe), reports.
+Later candidates: sending notices from the app to opted-in customers (marketing templates, billed per message; today the free broadcast list in the WhatsApp Business app covers it), reminder template the day before, `.ics` add-to-calendar, gallery (Vercel Blob), Hindi/regional language, missed-call → WhatsApp link (Exotel/Twilio), deposits (Razorpay/Stripe), reports.
 
 ## 15. Assumptions & open questions
 
 Defaults used until answered:
 
 1. **"Admin will approve the time slots"** — read as: admin publishes each barber's working hours/time off (which slots exist); barbers approve individual bookings; admin can approve/override any. *Confirm, or should admin approve every booking too?*
-2. Single shop, one location.
-3. India defaults: `+91`, INR, `Asia/Kolkata` — all editable in settings.
-4. Pending TTL **2 hours**; shown to customer ("we'll confirm within 2 hours").
-5. Existing WhatsApp Business app number will be connected via coexistence (needs Meta Business verification + payment method).
-6. English only in v1.
-7. No payments in v1.
+2. Single shop: Krishna Hair Salon, Gotri, Vadodara. *Need the full street address and a map pin (lat/lng or Google Maps link).*
+3. India: `+91`, INR, `Asia/Kolkata`. All editable in settings.
+4. *How many barbers besides Hitesh, and is the salon unisex?* (The Navratri post uses 💇‍♂️💇‍♀️.) This decides service categories and whether *Any available* is the default.
+5. *Instagram handle*: the link says `hitesh_.hairartist`, the text says `@hitesh._hairartist`. Which is right?
+6. *Logo, photos, service list with prices and durations*: needed before `feature/public-site`.
+10. Pending TTL **2 hours**; shown to customer ("we'll confirm within 2 hours").
+8. Existing WhatsApp Business app number will be connected via coexistence (needs Meta Business verification + payment method).
+9. English only in v1.
+10. No payments in v1.
