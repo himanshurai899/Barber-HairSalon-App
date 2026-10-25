@@ -22,6 +22,8 @@ How we build [design-plan.md](design-plan.md), phase by phase. **GitHub is the t
 
 ## Phases
 
+**Progress (code):** #5, #9-#18 are merged to `develop`. Open: #6, #7, #8 (owner tasks) and #19 (release, needs them). WhatsApp code is tested against a mocked Cloud API only; it has not talked to Meta.
+
 ### Phase 0 · Foundation
 Goal: everything needed so feature work can start and hosting/WhatsApp lead times begin early.
 
