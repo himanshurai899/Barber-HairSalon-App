@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  workers: 1, // tests share one in-memory database
   use: { baseURL: "http://localhost:3000" },
   projects: [{ name: "mobile", use: { ...devices["Pixel 7"] } }],
   webServer: {
