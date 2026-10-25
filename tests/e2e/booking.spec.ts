@@ -33,3 +33,9 @@ test("an invalid phone number shows an error and keeps what was typed", async ({
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page.getByLabel("Your name")).toHaveValue("Typo Tina");
 });
+
+test("booking started from the WhatsApp link is recorded as a WhatsApp booking", async ({ page }) => {
+  await page.goto("/book?src=wa");
+  await page.getByRole("link", { name: /^Beard trim/ }).click();
+  await expect(page).toHaveURL(/src=wa/);
+});
