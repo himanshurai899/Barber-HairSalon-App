@@ -43,18 +43,19 @@ export function AdminForm({
 
 export const field = "mt-1 block min-h-11 w-full rounded-md border border-line bg-surface px-3";
 
-export function Field({ label, name, defaultValue, type = "text", hint, required }: {
+export function Field({ label, name, defaultValue, type = "text", hint, required, list }: {
   label: string;
   name: string;
   defaultValue?: string | number | null;
   type?: string;
   hint?: string;
   required?: boolean;
+  list?: string;
 }) {
   return (
     <label className="block text-sm">
       {label}
-      <input name={name} type={type} defaultValue={defaultValue ?? ""} required={required} step={type === "number" ? "any" : undefined} className={field} />
+      <input name={name} type={type} defaultValue={defaultValue ?? ""} required={required} list={list} step={type === "number" ? "any" : undefined} className={field} />
       {hint && <span className="text-muted">{hint}</span>}
     </label>
   );

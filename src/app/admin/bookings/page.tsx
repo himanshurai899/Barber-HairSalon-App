@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { listBookingsFor } from "@/lib/access";
+import { listClients } from "@/lib/clients";
 import { getDb } from "@/lib/db";
 import { bookingStatuses } from "@/lib/db/schema";
 import { inZone } from "@/lib/format";
@@ -24,7 +25,7 @@ export default function BookingsAdmin({ searchParams }: PageProps<"/admin/bookin
 async function Body({ status }: { status: string }) {
   const actor = await requirePage(["admin"]);
   const db = await getDb();
-  const [all, services, barbers, shop] = await Promise.all([listBookingsFor(db, actor), getServices(), getBarbers(), getSettings()]);
+  const [all, services, barbers, shop, clients] = await Promise.all([listBookingsFor(db, actor), getServices(), getBarbers(), getSettings(), listClients(db, actor)]);
   const rows = (status ? all.filter((b) => b.status === status) : all).sort((a, b) => b.during.start.getTime() - a.during.start.getTime()).slice(0, 200);
   const tz = shop.timezone;
   return (
@@ -65,7 +66,12 @@ async function Body({ status }: { status: string }) {
           <Field label="Date" name="date" type="date" required />
           <Field label="Time" name="time" type="time" required />
           <Field label="Customer name" name="name" required />
-          <Field label="Phone" name="phone" type="tel" required />
+          <Field label="Phone" name="phone" type="tel" list="clients" required />
+          <datalist id="clients">
+            {clients.slice(0, 500).map((c) => (
+              <option key={c.id} value={c.phone} label={c.name} />
+            ))}
+          </datalist>
           <Field label="Note (optional)" name="note" />
         </AdminForm>
       </section>

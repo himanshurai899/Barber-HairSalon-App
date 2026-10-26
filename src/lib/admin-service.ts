@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireRole, type Actor } from "./access";
 import type { Db } from "./db";
 import * as s from "./db/schema";
+import { normalizePhone } from "./phone";
 import { loadSettings } from "./shop";
 import { zonedToUtc } from "./slots";
 
@@ -78,7 +79,15 @@ export async function saveBarber(db: Db, actor: Actor | null, input: unknown) {
     }),
     input,
   );
-  const { id: barberId, serviceIds, ...row } = d;
+  const { id: barberId, serviceIds, ...rest } = d;
+  let phone: string | null = null;
+  if (rest.phone) {
+    phone = normalizePhone(rest.phone);
+    if (!phone) throw new Error("phone: Check the phone number");
+    const [other] = await db.select().from(s.barbers).where(eq(s.barbers.phone, phone));
+    if (other && other.id !== barberId) throw new Error(`phone: That number is already used by ${other.name}`);
+  }
+  const row = { ...rest, phone };
   const saved = barberId
     ? (await db.update(s.barbers).set(row).where(eq(s.barbers.id, barberId)).returning({ id: s.barbers.id }))[0]
     : (await db.insert(s.barbers).values(row).returning({ id: s.barbers.id }))[0];
