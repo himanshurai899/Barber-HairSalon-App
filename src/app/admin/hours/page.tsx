@@ -11,6 +11,22 @@ export const metadata: Metadata = { title: "Hours", robots: { index: false } };
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const t5 = (t: string) => t.slice(0, 5);
 
+function SpecialFields({ h }: { h?: typeof s.specialHours.$inferSelect }) {
+  return (
+    <>
+      <Field label="Label" name="label" defaultValue={h?.label} />
+      <Field label="From date" name="startsOn" type="date" defaultValue={h?.startsOn} required />
+      <Field label="To date" name="endsOn" type="date" defaultValue={h?.endsOn} required />
+      <Field label="Opens" name="opens" type="time" defaultValue={h?.opens?.slice(0, 5)} />
+      <Field label="Closes" name="closes" type="time" defaultValue={h?.closes?.slice(0, 5)} />
+      <label className="flex min-h-11 items-center gap-3 text-sm">
+        <input type="checkbox" name="closed" defaultChecked={h?.closed} className="size-5" />
+        Closed on these dates
+      </label>
+    </>
+  );
+}
+
 export default async function HoursAdmin() {
   const db = await getDb();
   const [weekly, special] = await Promise.all([
@@ -39,10 +55,16 @@ export default async function HoursAdmin() {
         <ul className="divide-y divide-line">
           {special.map((h) => (
             <li key={h.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-              <span>
-                {h.label || "Special hours"}, {dateRange(h.startsOn, h.endsOn)}:{" "}
-                {h.closed ? "closed" : `${t5(h.opens ?? "")} to ${t5(h.closes ?? "")}`}
-              </span>
+              <details className="flex-1">
+                <summary className="min-h-11 cursor-pointer py-2">
+                  {h.label || "Special hours"}, {dateRange(h.startsOn, h.endsOn)}:{" "}
+                  {h.closed ? "closed" : `${t5(h.opens ?? "")} to ${t5(h.closes ?? "")}`}
+                </summary>
+                <AdminForm action={addSpecialHoursAction}>
+                  <input type="hidden" name="id" value={h.id} />
+                  <SpecialFields h={h} />
+                </AdminForm>
+              </details>
               <form action={deleteSpecialHoursAction}>
                 <input type="hidden" name="id" value={h.id} />
                 <button className="inline-flex min-h-11 items-center px-2 text-warn underline">Delete</button>
@@ -51,15 +73,7 @@ export default async function HoursAdmin() {
           ))}
         </ul>
         <AdminForm action={addSpecialHoursAction} submit="Add special hours">
-          <Field label="Label" name="label" />
-          <Field label="From date" name="startsOn" type="date" required />
-          <Field label="To date" name="endsOn" type="date" required />
-          <Field label="Opens" name="opens" type="time" />
-          <Field label="Closes" name="closes" type="time" />
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input type="checkbox" name="closed" className="size-5" />
-            Closed on these dates
-          </label>
+          <SpecialFields />
         </AdminForm>
       </section>
     </main>

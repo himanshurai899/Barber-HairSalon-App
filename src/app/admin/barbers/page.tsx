@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { asc } from "drizzle-orm";
+import Link from "next/link";
 import { getDb } from "@/lib/db";
 import * as s from "@/lib/db/schema";
 import { dateRange, inZone, WEEKDAYS } from "@/lib/format";
@@ -88,9 +89,18 @@ export default async function BarbersAdmin() {
                     const f = (d: Date) => inZone(d, shop.timezone, { year: "numeric", month: "2-digit", day: "2-digit" }).split("/").reverse().join("-");
                     return (
                       <li key={o.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                        <span>
-                          {dateRange(f(o.during.start), f(new Date(o.during.end.getTime() - 1)))} {o.reason && <span className="text-muted">{o.reason}</span>}
-                        </span>
+                        <details className="flex-1">
+                          <summary className="min-h-11 cursor-pointer py-2">
+                            {dateRange(f(o.during.start), f(new Date(o.during.end.getTime() - 1)))} {o.reason && <span className="text-muted">{o.reason}</span>}
+                          </summary>
+                          <AdminForm action={addTimeOffAction} submit="Save time off">
+                            <input type="hidden" name="id" value={o.id} />
+                            <input type="hidden" name="barberId" value={b.id} />
+                            <Field label="First day" name="from" type="date" defaultValue={f(o.during.start)} required />
+                            <Field label="Last day" name="to" type="date" defaultValue={f(new Date(o.during.end.getTime() - 1))} required />
+                            <Field label="Reason (optional)" name="reason" defaultValue={o.reason} />
+                          </AdminForm>
+                        </details>
                         <form action={deleteTimeOffAction}>
                           <input type="hidden" name="id" value={o.id} />
                           <button className="inline-flex min-h-11 items-center px-2 text-warn underline">Delete</button>
@@ -106,6 +116,9 @@ export default async function BarbersAdmin() {
                 <Field label="Reason (optional)" name="reason" />
               </AdminForm>
             </section>
+            <Link href={`/admin/barbers/${b.id}/delete`} className="inline-flex min-h-11 items-center text-warn underline">
+              Delete barber
+            </Link>
           </details>
         );
       })}

@@ -4,6 +4,8 @@ import { AccessError, type Actor } from "./access";
 import {
   addSpecialHours,
   addTimeOff,
+  deleteBarber,
+  deleteService,
   parseWindows,
   saveAvailability,
   saveBarber,
@@ -12,7 +14,7 @@ import {
 } from "./admin-service";
 import { getAvailableSlots } from "./booking-service";
 import { createLocalDb } from "./db/local-db";
-import { availability, barberServices, barbers, services, shopHours, specialHours, timeOff } from "./db/schema";
+import { availability, barberServices, barbers, bookings, services, shopHours, specialHours, timeOff } from "./db/schema";
 import { seed } from "./db/seed";
 
 type Db = Awaited<ReturnType<typeof createLocalDb>>;
@@ -124,5 +126,51 @@ describe("time off", () => {
   });
   test("end date before start date is rejected", async () => {
     await expect(addTimeOff(db, admin, { barberId: 1, from: "2026-11-03", to: "2026-11-02" })).rejects.toThrow(/before/);
+  });
+});
+
+describe("delete and edit", () => {
+  const book = async (serviceId: number, barberId: number) => {
+    const [c] = await db.insert((await import("./db/schema")).customers).values({ phone: "+919825099999", name: "C" }).onConflictDoNothing().returning();
+    const { insertBooking } = await import("./booking-lines");
+    const svc = await db.select().from(services).where(eq(services.id, serviceId));
+    await insertBooking(db, { customerId: c?.id ?? 1, barberId, status: "approved", source: "admin" }, new Date("2026-11-02T05:00:00Z"), svc);
+  };
+  test("a service with no bookings is deleted along with its barber links", async () => {
+    expect(await deleteService(db, admin, 4)).toEqual({ ok: true });
+    expect(await db.select().from(services).where(eq(services.id, 4))).toHaveLength(0);
+    expect(await db.select().from(barberServices).where(eq(barberServices.serviceId, 4))).toHaveLength(0);
+  });
+  test("a service used by bookings is blocked with a count", async () => {
+    await book(1, 1);
+    expect(await deleteService(db, admin, 1)).toMatchObject({ ok: false, error: expect.stringMatching(/has 1 booking.*deactivate/) });
+    expect(await db.select().from(services).where(eq(services.id, 1))).toHaveLength(1);
+  });
+  test("a barber is deleted with availability, links and time off; blocked when booked", async () => {
+    await addTimeOff(db, admin, { barberId: 2, from: "2026-11-02", to: "2026-11-02" });
+    await book(1, 1);
+    expect(await deleteBarber(db, admin, 1)).toMatchObject({ ok: false, error: expect.stringMatching(/has 1 booking.*deactivate/) });
+    expect(await deleteBarber(db, admin, 2)).toEqual({ ok: true });
+    for (const t of [availability, timeOff, barberServices]) expect(await db.select().from(t).where(eq(t.barberId, 2))).toHaveLength(0);
+    expect(await db.select().from(bookings)).toHaveLength(1);
+  });
+  test("deletes are admin-only", async () => {
+    await expect(deleteService(db, barber, 4)).rejects.toThrow(AccessError);
+    await expect(deleteBarber(db, barber, 2)).rejects.toThrow(AccessError);
+    await expect(deleteService(db, null, 4)).rejects.toThrow(AccessError);
+  });
+  test("special hours and time off can be edited in place", async () => {
+    const [sp] = await db.select().from(specialHours);
+    await addSpecialHours(db, admin, { id: sp.id, startsOn: "2026-10-11", endsOn: "2026-10-12", closed: true, label: "Edited" });
+    const rows = await db.select().from(specialHours);
+    expect(rows).toHaveLength(1);
+    expect([rows[0].label, rows[0].closed, rows[0].endsOn]).toEqual(["Edited", true, "2026-10-12"]);
+    await addTimeOff(db, admin, { barberId: 1, from: "2026-11-02", to: "2026-11-02", reason: "a" });
+    const [o] = await db.select().from(timeOff);
+    await addTimeOff(db, admin, { id: o.id, barberId: 1, from: "2026-11-05", to: "2026-11-06", reason: "b" });
+    const all = await db.select().from(timeOff);
+    expect(all).toHaveLength(1);
+    expect(all[0].reason).toBe("b");
+    await expect(addTimeOff(db, barber, { id: o.id, barberId: 1, from: "2026-11-05", to: "2026-11-06" })).rejects.toThrow(AccessError);
   });
 });
