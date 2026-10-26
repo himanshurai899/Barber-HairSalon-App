@@ -46,6 +46,9 @@ async function ServiceList() {
           </ul>
         </section>
       ))}
+      <p className="text-sm text-muted">
+        Prices may vary depending on hair length, product usage and service requirements. &ldquo;From&rdquo; prices are the starting price.
+      </p>
     </>
   );
 }
