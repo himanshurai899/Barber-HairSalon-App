@@ -105,5 +105,25 @@ flowchart LR
 | Spam bookings | Honeypot, per-phone limit, barber approval (#12) |
 | Owner is the only reviewer | Keep PRs small, one issue each |
 
+## Admin CRUD matrix
+
+Every action checks the admin role itself (`requireRole`); barbers never reach these pages. Hard deletes always go through a confirm page.
+
+| Thing | Create | Read | Update | Delete |
+|---|---|---|---|---|
+| Services | yes | yes | yes | confirm page; blocked with a count when bookings use it (hide it instead) |
+| Barbers | yes | yes | yes (profile, services, weekly availability) | confirm page; blocked when bookings exist; availability, links, time off go with it |
+| Time off | yes | yes | yes | yes |
+| Special hours | yes | yes | yes | yes |
+| Weekly shop hours | single set, edit only | yes | yes | n/a by design |
+| Shop settings | single row, edit only | yes | yes | n/a by design |
+| Notices and offers | yes | yes | yes | yes |
+| Bookings | manual (phone, walk-in) | yes | edit time, barber, services, note, customer (slot engine, overlap rule); status override | confirm page, admin only |
+| Clients | yes (also auto-created by bookings) | search, detail, history | yes (name, phone, email, notes, WhatsApp opt-in) | confirm page; blocked while they have bookings |
+| Staff logins | yes | yes | name, role, barber profile; reset password | confirm page; never yourself or the last admin |
+| Own password | n/a | n/a | any signed-in user, `/account/password` | n/a |
+
+Phone numbers are normalised to E.164 (`src/lib/phone.ts`); one number is one client, and one number belongs to at most one barber.
+
 ## Later (no issue until wanted)
 Reminder template the day before · `.ics` add-to-calendar · gallery · Hindi/Gujarati copy · missed-call → WhatsApp link · deposits (Razorpay/Stripe) · reports · sending notices from the app to opted-in customers.

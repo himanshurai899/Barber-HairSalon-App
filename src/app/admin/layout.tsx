@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
         ["/admin/notices", "Notices"],
         ["/admin/settings", "Settings"],
         ["/admin/users", "Users"],
+        ["/account/password", "Password"],
       ]}
     >
       {children}

@@ -38,10 +38,10 @@ test("admin creates a barber login that can sign in", async ({ page, browser }) 
   await signIn(page, "admin@demo.test");
   await expect(page).toHaveURL(/\/admin$/);
   await page.goto("/admin/users");
-  await page.getByLabel("Name").fill("New Barber");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Temporary password").fill("temp-password-1");
-  await page.getByRole("button", { name: "Create login" }).click();
+  await page.getByLabel("New login").getByLabel("Name").fill("New Barber");
+  await page.getByLabel("New login").getByLabel("Email").fill(email);
+  await page.getByLabel("New login").getByLabel("Temporary password").fill("temp-password-1");
+  await page.getByLabel("New login").getByRole("button", { name: "Create login" }).click();
   await expect(page.getByRole("status")).toContainText("Login created");
 
   const other = await (await browser.newContext()).newPage();
