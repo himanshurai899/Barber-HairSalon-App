@@ -6,6 +6,8 @@ import type { BookingStatus } from "@/lib/db/schema";
 import {
   addSpecialHours,
   addTimeOff,
+  deleteBarber,
+  deleteService,
   deleteSpecialHours,
   deleteTimeOff,
   saveAvailability,
@@ -67,7 +69,7 @@ export async function saveShopHoursAction(_: State, fd: FormData) {
 export async function addSpecialHoursAction(_: State, fd: FormData) {
   return run("/admin/hours", (db, actor) =>
     addSpecialHours(db, actor, {
-      startsOn: fd.get("startsOn"), endsOn: fd.get("endsOn"), opens: val(fd, "opens"), closes: val(fd, "closes"),
+      id: val(fd, "id"), startsOn: fd.get("startsOn"), endsOn: fd.get("endsOn"), opens: val(fd, "opens"), closes: val(fd, "closes"),
       closed: on(fd, "closed"), label: val(fd, "label"),
     }),
   );
@@ -83,7 +85,7 @@ export async function saveAvailabilityAction(_: State, fd: FormData) {
 
 export async function addTimeOffAction(_: State, fd: FormData) {
   return run("/admin/barbers", (db, actor) =>
-    addTimeOff(db, actor, { barberId: fd.get("barberId"), from: fd.get("from"), to: fd.get("to"), reason: val(fd, "reason") }),
+    addTimeOff(db, actor, { id: val(fd, "id"), barberId: fd.get("barberId"), from: fd.get("from"), to: fd.get("to"), reason: val(fd, "reason") }),
   );
 }
 
@@ -120,4 +122,12 @@ export async function deleteNoticeAction(fd: FormData) {
 export async function saveSettingsAction(_: State, fd: FormData) {
   const keys = ["name", "tagline", "address", "lat", "lng", "mapsPlaceId", "phone", "whatsappNumber", "timezone", "currency", "greetingText", "pendingTtlMin", "slotStepMin", "minNoticeMin", "horizonDays", "maxOpenPerPhone"];
   return run("/admin/settings", (db, actor) => saveSettings(db, actor, Object.fromEntries(keys.map((k) => [k, fd.get(k) ?? undefined]))));
+}
+
+export async function deleteServiceAction(_: State, fd: FormData) {
+  return run("/admin/services", (db, actor) => deleteService(db, actor, Number(fd.get("id"))));
+}
+
+export async function deleteBarberAction(_: State, fd: FormData) {
+  return run("/admin/barbers", (db, actor) => deleteBarber(db, actor, Number(fd.get("id"))));
 }

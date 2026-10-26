@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { asc } from "drizzle-orm";
+import Link from "next/link";
 import { getDb } from "@/lib/db";
 import * as s from "@/lib/db/schema";
 import { AdminForm, Field } from "../admin-form";
@@ -37,6 +38,9 @@ export default async function ServicesAdmin() {
           <AdminForm action={saveServiceAction}>
             <Fields v={v} />
           </AdminForm>
+          <Link href={`/admin/services/${v.id}/delete`} className="mt-2 inline-flex min-h-11 items-center text-warn underline">
+            Delete service
+          </Link>
         </details>
       ))}
       <section aria-labelledby="add" className="space-y-3">

@@ -1,5 +1,5 @@
 // Admin catalog changes (design-plan section 4). Every function checks the actor and validates with Zod first.
-import { eq } from "drizzle-orm";
+import { count, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { requireRole, type Actor } from "./access";
 import type { Db } from "./db";
@@ -103,6 +103,7 @@ export async function addSpecialHours(db: Db, actor: Actor | null, input: unknow
   const d = check(
     z
       .object({
+        id,
         startsOn: day,
         endsOn: day,
         opens: hhmm.optional(),
@@ -114,14 +115,16 @@ export async function addSpecialHours(db: Db, actor: Actor | null, input: unknow
       .refine((v) => v.closed || (v.opens && v.closes && v.closes > v.opens), { message: "Set opening and closing times, closing after opening" }),
     input,
   );
-  await db.insert(s.specialHours).values({
+  const row = {
     startsOn: d.startsOn,
     endsOn: d.endsOn,
     opens: d.closed ? null : d.opens,
     closes: d.closed ? null : d.closes,
     closed: d.closed,
     label: d.label,
-  });
+  };
+  if (d.id) await db.update(s.specialHours).set(row).where(eq(s.specialHours.id, d.id));
+  else await db.insert(s.specialHours).values(row);
 }
 
 export async function deleteSpecialHours(db: Db, actor: Actor | null, specialId: number) {
@@ -143,21 +146,51 @@ export async function saveAvailability(db: Db, actor: Actor | null, barberId: nu
 export async function addTimeOff(db: Db, actor: Actor | null, input: unknown) {
   admin(actor);
   const d = check(
-    z.object({ barberId: z.coerce.number().int().positive(), from: day, to: day, reason: text(120) }).refine((v) => v.to >= v.from, {
+    z.object({ id, barberId: z.coerce.number().int().positive(), from: day, to: day, reason: text(120) }).refine((v) => v.to >= v.from, {
       message: "Last day is before the first day",
     }),
     input,
   );
   const tz = (await loadSettings(db)).timezone;
   const next = new Date(Date.parse(`${d.to}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
-  await db.insert(s.timeOff).values({
+  const row = {
     barberId: d.barberId,
     during: { start: zonedToUtc(d.from, "00:00", tz), end: zonedToUtc(next, "00:00", tz) },
     reason: d.reason,
-  });
+  };
+  if (d.id) await db.update(s.timeOff).set(row).where(eq(s.timeOff.id, d.id));
+  else await db.insert(s.timeOff).values(row);
 }
 
 export async function deleteTimeOff(db: Db, actor: Actor | null, timeOffId: number) {
   admin(actor);
   await db.delete(s.timeOff).where(eq(s.timeOff.id, timeOffId));
+}
+
+const bookingsText = (name: string, n: number) => `"${name}" has ${n} booking${n === 1 ? "" : "s"}, deactivate it instead.`;
+
+/** Hard delete. Blocked while any booking (or booking line) references the service; otherwise barber links go with it. */
+export async function deleteService(db: Db, actor: Actor | null, serviceId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  admin(actor);
+  const [svc] = await db.select().from(s.services).where(eq(s.services.id, serviceId));
+  if (!svc) return { ok: false, error: "Service not found." };
+  const [{ n }] = await db
+    .select({ n: count() })
+    .from(s.bookings)
+    .leftJoin(s.bookingServices, eq(s.bookingServices.bookingId, s.bookings.id))
+    .where(or(eq(s.bookings.serviceId, serviceId), eq(s.bookingServices.serviceId, serviceId)));
+  if (n) return { ok: false, error: bookingsText(svc.name, n) };
+  await db.delete(s.services).where(eq(s.services.id, serviceId)); // barber_services cascades
+  return { ok: true };
+}
+
+/** Hard delete. Blocked while bookings reference the barber; availability, links and time off go with it. */
+export async function deleteBarber(db: Db, actor: Actor | null, barberId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  admin(actor);
+  const [b] = await db.select().from(s.barbers).where(eq(s.barbers.id, barberId));
+  if (!b) return { ok: false, error: "Barber not found." };
+  const [{ n }] = await db.select({ n: count() }).from(s.bookings).where(eq(s.bookings.barberId, barberId));
+  if (n) return { ok: false, error: bookingsText(b.name, n) };
+  await db.delete(s.barbers).where(eq(s.barbers.id, barberId));
+  return { ok: true };
 }

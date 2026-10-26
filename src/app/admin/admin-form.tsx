@@ -10,11 +10,13 @@ export function AdminForm({
   children,
   submit = "Save",
   tone = "primary",
+  done = "Saved.",
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   children?: ReactNode;
   submit?: string;
   tone?: "primary" | "quiet";
+  done?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   return (
@@ -25,7 +27,7 @@ export function AdminForm({
           {state.error}
         </p>
       )}
-      {state?.ok && <p role="status">Saved.</p>}
+      {state?.ok && <p role="status">{done}</p>}
       <button
         type="submit"
         disabled={pending}
