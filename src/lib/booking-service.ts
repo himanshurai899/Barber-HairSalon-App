@@ -1,5 +1,5 @@
 // Customer-facing booking logic (design-plan sections 3, 8, 9, 11). Takes the db so tests can use PGlite.
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import parsePhoneNumber from "libphonenumber-js";
 import { z } from "zod";
 import { insertBooking, loadBookableServices, withServices } from "./booking-lines";
@@ -22,11 +22,15 @@ export async function expirePending(db: Db, ttlMin: number, now: Date) {
 
 const addDay = (date: string) => new Date(Date.parse(`${date}T12:00:00Z`) + 24 * 60 * MIN).toISOString().slice(0, 10);
 
-/** Loads everything getSlots needs for one shop-local date. */
-async function loadSlotInput(db: Db, date: string, serviceIds: number[], now: Date) {
+/**
+ * Loads everything getSlots needs for one shop-local date.
+ * `staff` (admin edits): hidden services are allowed, no minimum notice, a ten year horizon,
+ * and `excludeBookingId` is left out of the busy list so a booking can move around its own slot.
+ */
+export async function loadSlotInput(db: Db, date: string, serviceIds: number[], now: Date, staff?: { excludeBookingId: number }) {
   const settings = await loadSettings(db);
   await expirePending(db, settings.pendingTtlMin, now);
-  const svcs = await loadBookableServices(db, serviceIds);
+  const svcs = await loadBookableServices(db, serviceIds, !staff);
   if (!svcs) return null;
   const dayS = zonedToUtc(date, "00:00", settings.timezone).toISOString();
   const dayE = zonedToUtc(addDay(date), "00:00", settings.timezone).toISOString();
@@ -41,7 +45,7 @@ async function loadSlotInput(db: Db, date: string, serviceIds: number[], now: Da
     db
       .select()
       .from(s.bookings)
-      .where(and(inArray(s.bookings.status, [...open]), sql`${s.bookings.during} && ${day}`)),
+      .where(and(inArray(s.bookings.status, [...open]), sql`${s.bookings.during} && ${day}`, staff ? ne(s.bookings.id, staff.excludeBookingId) : undefined)),
   ]);
   const slotInput: SlotInput = {
     date,
@@ -60,8 +64,8 @@ async function loadSlotInput(db: Db, date: string, serviceIds: number[], now: Da
     settings: {
       timezone: settings.timezone,
       slotStepMin: settings.slotStepMin,
-      minNoticeMin: settings.minNoticeMin,
-      horizonDays: settings.horizonDays,
+      minNoticeMin: staff ? 0 : settings.minNoticeMin,
+      horizonDays: staff ? 3650 : settings.horizonDays,
     },
     now,
   };

@@ -96,6 +96,14 @@ async function Body({ status }: { status: string }) {
               <p className="text-muted">
                 {b.service} with {b.barber}, {b.customerPhone}, from {b.source}
               </p>
+              <p className="flex gap-4">
+                <Link href={`/admin/bookings/${b.id}/edit`} className="inline-flex min-h-11 items-center underline">
+                  Edit
+                </Link>
+                <Link href={`/admin/bookings/${b.id}/delete`} className="inline-flex min-h-11 items-center text-warn underline">
+                  Delete
+                </Link>
+              </p>
               <AdminForm action={overrideStatusAction} submit="Set status" tone="quiet">
                 <input type="hidden" name="id" value={b.id} />
                 <select name="status" defaultValue={b.status} aria-label={`Status for ${b.customer}`} className={field}>

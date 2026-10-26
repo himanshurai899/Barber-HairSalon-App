@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "vitest";
 import { AccessError, type Actor } from "./access";
-import { copyForWhatsApp, createManualBooking, deleteNotice, overrideStatus, saveNotice, saveSettings } from "./admin-bookings";
-import { bookings, customers, notices, shopSettings, user } from "./db/schema";
+import { copyForWhatsApp, createManualBooking, deleteBooking, deleteNotice, editBooking, overrideStatus, saveNotice, saveSettings } from "./admin-bookings";
+import { barberServices, bookingServices, bookings, customers, notices, services, shopSettings, user, waOutbound } from "./db/schema";
 import { createLocalDb } from "./db/local-db";
 import { seed } from "./db/seed";
 
@@ -107,5 +107,80 @@ describe("saveSettings", () => {
     await expect(saveSettings(db, admin, { ...valid, timezone: "Mars/Base" })).rejects.toThrow(/timezone/i);
     await expect(saveSettings(db, admin, { ...valid, lat: "abc" })).rejects.toThrow();
     await expect(saveSettings(db, hitesh, valid)).rejects.toThrow(AccessError);
+  });
+});
+
+describe("editBooking", () => {
+  const now = new Date("2026-10-30T00:00:00Z");
+  const edit = (over: object = {}, who: Actor | null = admin) => editBooking(db, who, { ...base, name: "Caller", ...over, id: 1 }, now);
+  beforeEach(async () => {
+    await createManualBooking(db, admin, base);
+  });
+
+  test("reschedules and changes barber, keeping the booking itself out of the conflict check", async () => {
+    // 10:15 overlaps the booking's own old slot: only legal because it is excluded
+    expect(await edit({ time: "10:15" })).toEqual({ ok: true });
+    let [b] = await db.select().from(bookings);
+    expect(b.during.start.toISOString()).toBe("2026-11-02T04:45:00.000Z");
+    expect(b.during.end.toISOString()).toBe("2026-11-02T05:15:00.000Z");
+    expect(await edit({ barberId: 2, time: "12:00" })).toEqual({ ok: true });
+    [b] = await db.select().from(bookings);
+    expect([b.barberId, b.status]).toEqual([2, "approved"]);
+  });
+
+  test("a time another booking holds, or outside the barber's day, is refused", async () => {
+    await createManualBooking(db, admin, { ...base, time: "12:00", name: "Other", phone: "98250 33333" });
+    expect(await edit({ time: "12:00" })).toMatchObject({ ok: false, error: expect.stringMatching(/not available/) });
+    expect(await edit({ time: "22:00" })).toMatchObject({ ok: false });
+    expect((await db.select().from(bookings).where(eq(bookings.id, 1)))[0].during.start.toISOString()).toBe("2026-11-02T04:30:00.000Z");
+  });
+
+  test("the barber must offer every selected service", async () => {
+    await db.delete(barberServices).where(and(eq(barberServices.barberId, 1), eq(barberServices.serviceId, 2)));
+    expect(await edit({ serviceIds: [1, 2] })).toMatchObject({ ok: false, error: expect.stringMatching(/not available/) });
+  });
+
+  test("changing services recomputes length, price, lines and the primary service", async () => {
+    expect(await edit({ serviceIds: [2, 1] })).toEqual({ ok: true });
+    const [b] = await db.select().from(bookings);
+    expect([b.serviceId, b.priceMinor, b.during.end.getTime() - b.during.start.getTime()]).toEqual([1, 30000, 45 * 60_000]);
+    const lines = await db.select().from(bookingServices).where(eq(bookingServices.bookingId, 1));
+    expect(lines.map((l) => l.name).sort()).toEqual(["Beard trim", "Haircut"]);
+  });
+
+  test("unchanged services keep their price snapshot even after the service price changed", async () => {
+    await db.update(services).set({ priceMinor: 99900 }).where(eq(services.id, 1));
+    expect(await edit({ note: "Bring photo", time: "11:00" })).toEqual({ ok: true });
+    const [b] = await db.select().from(bookings);
+    expect([b.priceMinor, b.note]).toEqual([20000, "Bring photo"]);
+    expect((await db.select().from(bookingServices))[0].priceMinor).toBe(20000);
+  });
+
+  test("a different phone moves the booking to that client, without duplicating clients", async () => {
+    expect(await edit({ name: "New Person", phone: "+91 98250 44444" })).toEqual({ ok: true });
+    expect(await edit({ name: "New Person", phone: "09825044444" })).toEqual({ ok: true });
+    const cs = await db.select().from(customers);
+    expect(cs.map((c) => c.phone).sort()).toEqual(["+919825011111", "+919825044444"]);
+    expect((await db.select().from(bookings))[0].customerId).toBe(cs.find((c) => c.phone === "+919825044444")!.id);
+    expect(await edit({ phone: "123456" })).toMatchObject({ ok: false });
+  });
+
+  test("only admins edit; barbers and anonymous are rejected", async () => {
+    await expect(edit({}, hitesh)).rejects.toThrow(AccessError);
+    await expect(edit({}, null)).rejects.toThrow(AccessError);
+  });
+});
+
+describe("deleteBooking", () => {
+  test("removes the booking and its lines, keeps the message log row, admin only", async () => {
+    await createManualBooking(db, admin, base);
+    await db.insert(waOutbound).values({ bookingId: 1, template: "t", status: "sent" });
+    await expect(deleteBooking(db, hitesh, 1)).rejects.toThrow(AccessError);
+    await expect(deleteBooking(db, null, 1)).rejects.toThrow(AccessError);
+    expect(await deleteBooking(db, admin, 1)).toEqual({ ok: true });
+    expect(await db.select().from(bookings)).toHaveLength(0);
+    expect(await db.select().from(bookingServices)).toHaveLength(0);
+    expect((await db.select().from(waOutbound))[0].bookingId).toBeNull();
+    expect(await deleteBooking(db, admin, 1)).toMatchObject({ ok: false });
   });
 });
