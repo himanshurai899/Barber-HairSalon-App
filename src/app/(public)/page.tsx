@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { clock, dateRange, digits, inZone, mapsDirectionsUrl, WEEKDAYS } from "@/lib/format";
+import { clock, dateRange, digits, inZone, mapsDirectionsUrl, WEEKDAYS, whatsappLink } from "@/lib/format";
 import { getBarbers, getHours, getNotices, getSettings, getUpcomingTimeOff } from "@/lib/shop";
 import { ShareLocation } from "./share-location";
 
@@ -77,7 +77,7 @@ async function Landing() {
             Book a slot
           </Link>
           {s.whatsappNumber && (
-            <a href={`https://wa.me/${digits(s.whatsappNumber)}`} className={secondary}>
+            <a href={whatsappLink(s.whatsappNumber, s.name)} className={secondary}>
               WhatsApp
             </a>
           )}

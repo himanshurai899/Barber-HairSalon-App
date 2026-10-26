@@ -53,3 +53,7 @@ export function mapsDirectionsUrl(s: { lat: string | null; lng: string | null; a
 
 /** Digits only, for wa.me and tel: links. */
 export const digits = (phone: string) => phone.replace(/\D/g, "");
+
+/** wa.me link that opens the chat with a ready-to-send booking message. */
+export const whatsappLink = (number: string, shopName: string) =>
+  `https://wa.me/${digits(number)}?text=${encodeURIComponent(`Hi ${shopName}, I'd like to book an appointment.`)}`;
