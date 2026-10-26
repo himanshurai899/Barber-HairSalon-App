@@ -1,9 +1,10 @@
 // Customer-facing booking logic (design-plan sections 3, 8, 9, 11). Takes the db so tests can use PGlite.
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
-import parsePhoneNumber from "libphonenumber-js";
 import { z } from "zod";
 import { insertBooking, loadBookableServices, withServices } from "./booking-lines";
 import { transition } from "./bookings";
+import { upsertClient } from "./clients";
+import { normalizePhone } from "./phone";
 import type { Db } from "./db";
 import * as s from "./db/schema";
 import { getSlots, pickBarber, zonedToUtc, type Slot, type SlotInput } from "./slots";
@@ -106,8 +107,8 @@ const fail = (error: "invalid" | "unavailable" | "too_many", message: string): C
 
 export async function createBooking(db: Db, raw: BookingInput, now = new Date()): Promise<CreateResult> {
   const parsed = input.safeParse(raw);
-  const phone = parsed.success ? parsePhoneNumber(parsed.data.phone, "IN") : undefined;
-  if (!parsed.success || !phone?.isValid()) return fail("invalid", "Please check your name and phone number.");
+  const phone = parsed.success ? normalizePhone(parsed.data.phone) : null;
+  if (!parsed.success || !phone) return fail("invalid", "Please check your name and phone number.");
   const d = parsed.data;
 
   const loaded = await loadSlotInput(db, d.date, d.serviceIds, now);
@@ -116,11 +117,7 @@ export async function createBooking(db: Db, raw: BookingInput, now = new Date())
   const start = zonedToUtc(d.date, d.time, si.settings.timezone);
 
   // Customer by phone (the key); name follows their latest booking.
-  const [customer] = await db
-    .insert(s.customers)
-    .values({ phone: phone.number, name: d.name, waOptIn: d.waOptIn })
-    .onConflictDoUpdate({ target: s.customers.phone, set: { name: d.name, waOptIn: d.waOptIn } })
-    .returning();
+  const customer = await upsertClient(db, { phone, name: d.name, waOptIn: d.waOptIn });
 
   const mine = await db
     .select()

@@ -7,6 +7,7 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
       links={[
         ["/admin", "Dashboard"],
         ["/admin/bookings", "Bookings"],
+        ["/admin/clients", "Clients"],
         ["/admin/barbers", "Barbers"],
         ["/admin/services", "Services"],
         ["/admin/hours", "Hours"],

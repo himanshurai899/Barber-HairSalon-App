@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { saveClient, deleteClient } from "@/lib/clients";
 import { createManualBooking, deleteBooking, deleteNotice, editBooking, overrideStatus, saveNotice, saveSettings } from "@/lib/admin-bookings";
 import type { BookingStatus } from "@/lib/db/schema";
 import {
@@ -143,4 +144,14 @@ export async function deleteServiceAction(_: State, fd: FormData) {
 
 export async function deleteBarberAction(_: State, fd: FormData) {
   return run("/admin/barbers", (db, actor) => deleteBarber(db, actor, Number(fd.get("id"))));
+}
+
+export async function saveClientAction(_: State, fd: FormData) {
+  return run("/admin/clients", (db, actor) =>
+    saveClient(db, actor, { id: val(fd, "id"), name: fd.get("name"), phone: fd.get("phone"), email: val(fd, "email"), notes: val(fd, "notes"), waOptIn: on(fd, "waOptIn") }),
+  );
+}
+
+export async function deleteClientAction(_: State, fd: FormData) {
+  return run("/admin/clients", (db, actor) => deleteClient(db, actor, Number(fd.get("id"))));
 }

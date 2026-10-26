@@ -1,9 +1,10 @@
 // Manual bookings, status override, notices and settings (design-plan sections 3 and 4).
 import { eq } from "drizzle-orm";
-import parsePhoneNumber from "libphonenumber-js";
 import { z } from "zod";
 import { AccessError, requireRole, type Actor } from "./access";
 import { admin, check } from "./admin-service";
+import { upsertClient } from "./clients";
+import { normalizePhone } from "./phone";
 import { insertBooking, loadBookableServices, totals } from "./booking-lines";
 import { loadSlotInput } from "./booking-service";
 import type { Db } from "./db";
@@ -39,17 +40,13 @@ export async function createManualBooking(
     input,
   );
   if (a.role === "barber" && a.barberId !== d.barberId) throw new AccessError("forbidden");
-  const phone = parsePhoneNumber(d.phone, "IN");
-  if (!phone?.isValid()) return { ok: false, error: "Check the phone number." };
+  const phone = normalizePhone(d.phone);
+  if (!phone) return { ok: false, error: "Check the phone number." };
   const svcs = await loadBookableServices(db, d.serviceIds, false); // a human booked it: an inactive service is still allowed
   if (!svcs) return { ok: false, error: "Unknown service." };
   const tz = (await loadSettings(db)).timezone;
   const start = zonedToUtc(d.date, d.time, tz);
-  const [customer] = await db
-    .insert(s.customers)
-    .values({ phone: phone.number, name: d.name, waOptIn: false }) // no WhatsApp consent was given on the phone
-    .onConflictDoUpdate({ target: s.customers.phone, set: { name: d.name } })
-    .returning();
+  const customer = await upsertClient(db, { phone, name: d.name }); // no WhatsApp consent was given on the phone
   try {
     const row = await insertBooking(
       db,
@@ -87,8 +84,8 @@ export async function editBooking(db: Db, actor: Actor | null, input: unknown, n
   );
   const [cur] = await db.select().from(s.bookings).where(eq(s.bookings.id, d.id));
   if (!cur) return { ok: false, error: "Booking not found." };
-  const phone = parsePhoneNumber(d.phone, "IN");
-  if (!phone?.isValid()) return { ok: false, error: "Check the phone number." };
+  const phone = normalizePhone(d.phone);
+  if (!phone) return { ok: false, error: "Check the phone number." };
   const svcs = await loadBookableServices(db, d.serviceIds, false);
   if (!svcs) return { ok: false, error: "Unknown service." };
 
@@ -107,11 +104,7 @@ export async function editBooking(db: Db, actor: Actor | null, input: unknown, n
     if (!slot?.barberIds.includes(d.barberId)) return { ok: false, error: "That time is not available for this barber and these services." };
   }
 
-  const [customer] = await db
-    .insert(s.customers)
-    .values({ phone: phone.number, name: d.name, waOptIn: false })
-    .onConflictDoUpdate({ target: s.customers.phone, set: { name: d.name } })
-    .returning();
+  const customer = await upsertClient(db, { phone, name: d.name });
   try {
     await db
       .update(s.bookings)

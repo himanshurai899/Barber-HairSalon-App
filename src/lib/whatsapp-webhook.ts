@@ -2,6 +2,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import type { Db } from "./db";
 import * as s from "./db/schema";
+import { normalizePhone } from "./phone";
 import { loadSettings } from "./shop";
 import { sendCtaUrl, verifySignature, type CtaMessage } from "./whatsapp";
 
@@ -36,7 +37,7 @@ export async function handleInbound(db: Db, payload: unknown, o: Opts) {
       if (!fresh.length) continue; // Meta retries: already handled
 
       const name = names.get(from) || "";
-      await db.insert(s.customers).values({ phone: `+${from}`, name: name || "WhatsApp customer", waOptIn: false }).onConflictDoNothing();
+      await db.insert(s.customers).values({ phone: normalizePhone(`+${from}`) ?? `+${from}`, name: name || "WhatsApp customer", waOptIn: false }).onConflictDoNothing();
 
       const recent = await db
         .select({ id: s.waInbound.waMessageId })

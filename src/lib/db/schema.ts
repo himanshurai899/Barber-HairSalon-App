@@ -8,6 +8,7 @@ import {
   customType,
   date,
   index,
+  uniqueIndex,
   integer,
   pgTable,
   primaryKey,
@@ -139,17 +140,21 @@ export const specialHours = pgTable(
   (t) => [check("special_hours_dates", sql`${t.endsOn} >= ${t.startsOn}`)],
 );
 
-export const barbers = pgTable("barbers", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  phone: text("phone"),
-  photoUrl: text("photo_url"),
-  bio: text("bio"),
-  instagram: text("instagram"),
-  active: boolean("active").notNull().default(true),
-  sort: integer("sort").notNull().default(0),
-  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
-});
+export const barbers = pgTable(
+  "barbers",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    phone: text("phone"), // E.164, unique when set
+    photoUrl: text("photo_url"),
+    bio: text("bio"),
+    instagram: text("instagram"),
+    active: boolean("active").notNull().default(true),
+    sort: integer("sort").notNull().default(0),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t) => [uniqueIndex("barbers_phone_unique").on(t.phone).where(sql`${t.phone} is not null`)],
+);
 
 export const services = pgTable(
   "services",
@@ -197,6 +202,8 @@ export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   phone: text("phone").notNull().unique(), // E.164
   name: text("name").notNull(),
+  email: text("email"),
+  notes: text("notes"), // admin-only: preferences, allergies, anything to remember
   waOptIn: boolean("wa_opt_in").notNull().default(true),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
