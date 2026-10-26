@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createManualBooking, deleteNotice, overrideStatus, saveNotice, saveSettings } from "@/lib/admin-bookings";
+import { createManualBooking, deleteBooking, deleteNotice, editBooking, overrideStatus, saveNotice, saveSettings } from "@/lib/admin-bookings";
 import type { BookingStatus } from "@/lib/db/schema";
 import {
   addSpecialHours,
@@ -100,6 +100,19 @@ export async function manualBookingAction(_: State, fd: FormData) {
       name: fd.get("name"), phone: fd.get("phone"), source: fd.get("source"), note: val(fd, "note"),
     }),
   );
+}
+
+export async function editBookingAction(_: State, fd: FormData) {
+  return run("/admin/bookings", (db, actor) =>
+    editBooking(db, actor, {
+      id: fd.get("id"), serviceIds: fd.getAll("serviceIds"), barberId: fd.get("barberId"), date: fd.get("date"), time: fd.get("time"),
+      name: fd.get("name"), phone: fd.get("phone"), note: val(fd, "note"),
+    }),
+  );
+}
+
+export async function deleteBookingAction(_: State, fd: FormData) {
+  return run("/admin/bookings", (db, actor) => deleteBooking(db, actor, Number(fd.get("id"))));
 }
 
 export async function overrideStatusAction(_: State, fd: FormData) {

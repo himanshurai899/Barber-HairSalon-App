@@ -4,12 +4,13 @@ import parsePhoneNumber from "libphonenumber-js";
 import { z } from "zod";
 import { AccessError, requireRole, type Actor } from "./access";
 import { admin, check } from "./admin-service";
-import { insertBooking, loadBookableServices } from "./booking-lines";
+import { insertBooking, loadBookableServices, totals } from "./booking-lines";
+import { loadSlotInput } from "./booking-service";
 import type { Db } from "./db";
 import * as s from "./db/schema";
 import { shortDate } from "./format";
 import { loadSettings } from "./shop";
-import { zonedToUtc } from "./slots";
+import { getSlots, zonedToUtc } from "./slots";
 
 const taken = "That time is already booked for this barber.";
 const isOverlap = (e: unknown) => {
@@ -61,6 +62,79 @@ export async function createManualBooking(
     if (isOverlap(e)) return { ok: false, error: taken };
     throw e;
   }
+}
+
+/**
+ * Admin edit of any booking: time, barber, services, note and customer (found or created by phone).
+ * A new time/barber/length must be a real slot (slot engine, this booking excluded); the database overlap rule is still the last guard.
+ * Services unchanged: price and length snapshots stay. Changed: recomputed from the services as they are now.
+ * Status is not touched here (overrideStatus / the transition function own that).
+ */
+export async function editBooking(db: Db, actor: Actor | null, input: unknown, now = new Date()): Promise<{ ok: true } | { ok: false; error: string }> {
+  admin(actor);
+  const d = check(
+    z.object({
+      id: z.coerce.number().int().positive(),
+      serviceIds: z.array(z.coerce.number().int().positive()).min(1, "Pick at least one service").max(10).refine((ids) => new Set(ids).size === ids.length, "Each service once"),
+      barberId: z.coerce.number().int().positive(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date"),
+      time: z.string().regex(/^\d{2}:\d{2}$/, "Pick a time"),
+      name: z.string().trim().min(1, "Name is required").max(80),
+      phone: z.string().trim().min(6, "Check the phone number").max(30),
+      note: z.string().trim().max(200).optional(),
+    }),
+    input,
+  );
+  const [cur] = await db.select().from(s.bookings).where(eq(s.bookings.id, d.id));
+  if (!cur) return { ok: false, error: "Booking not found." };
+  const phone = parsePhoneNumber(d.phone, "IN");
+  if (!phone?.isValid()) return { ok: false, error: "Check the phone number." };
+  const svcs = await loadBookableServices(db, d.serviceIds, false);
+  if (!svcs) return { ok: false, error: "Unknown service." };
+
+  const oldLines = await db.select().from(s.bookingServices).where(eq(s.bookingServices.bookingId, cur.id));
+  const sameServices = oldLines.length === svcs.length && oldLines.every((l) => d.serviceIds.includes(l.serviceId));
+  const oldMs = cur.during.end.getTime() - cur.during.start.getTime();
+  const priceMinor = sameServices ? cur.priceMinor : totals(svcs).priceMinor;
+  const lengthMs = sameServices ? oldMs : totals(svcs).durationMin * 60_000;
+  const tz = (await loadSettings(db)).timezone;
+  const start = zonedToUtc(d.date, d.time, tz);
+  const during = { start, end: new Date(start.getTime() + lengthMs) };
+
+  if (start.getTime() !== cur.during.start.getTime() || d.barberId !== cur.barberId || lengthMs !== oldMs) {
+    const loaded = await loadSlotInput(db, d.date, d.serviceIds, now, { excludeBookingId: cur.id });
+    const slot = loaded && getSlots(loaded.slotInput).find((x) => x.start.getTime() === start.getTime());
+    if (!slot?.barberIds.includes(d.barberId)) return { ok: false, error: "That time is not available for this barber and these services." };
+  }
+
+  const [customer] = await db
+    .insert(s.customers)
+    .values({ phone: phone.number, name: d.name, waOptIn: false })
+    .onConflictDoUpdate({ target: s.customers.phone, set: { name: d.name } })
+    .returning();
+  try {
+    await db
+      .update(s.bookings)
+      .set({ customerId: customer.id, barberId: d.barberId, serviceId: svcs[0].id, during, priceMinor, note: d.note || null })
+      .where(eq(s.bookings.id, cur.id));
+  } catch (e) {
+    if (isOverlap(e)) return { ok: false, error: taken };
+    throw e;
+  }
+  if (!sameServices) {
+    await db.delete(s.bookingServices).where(eq(s.bookingServices.bookingId, cur.id));
+    await db.insert(s.bookingServices).values(
+      svcs.map((v, position) => ({ bookingId: cur.id, serviceId: v.id, position, name: v.name, durationMin: v.durationMin, priceMinor: v.priceMinor })),
+    );
+  }
+  return { ok: true };
+}
+
+/** Admin only. Lines go with the booking (cascade); the WhatsApp log row stays with its booking id cleared. */
+export async function deleteBooking(db: Db, actor: Actor | null, bookingId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  admin(actor);
+  const gone = await db.delete(s.bookings).where(eq(s.bookings.id, bookingId)).returning({ id: s.bookings.id });
+  return gone.length ? { ok: true } : { ok: false, error: "Booking not found." };
 }
 
 /** Admin escape hatch: set any status. Reviving a booking whose slot is gone fails on the overlap rule. */
