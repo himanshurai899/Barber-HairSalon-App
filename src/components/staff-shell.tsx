@@ -10,16 +10,16 @@ async function Shell({ roles, links, children }: { roles: Role[]; links: [string
   return (
     <>
       <header className="border-b border-line">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-4 px-4">
-          <nav aria-label="Staff" className="flex flex-wrap items-center">
+        <div className="mx-auto flex max-w-4xl flex-col px-4 md:flex-row md:items-center md:justify-between md:gap-x-4">
+          <nav aria-label="Staff" className="-mx-4 flex items-center overflow-x-auto whitespace-nowrap px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
             {links.map(([href, label]) => (
-              <Link key={href} href={href} className="inline-flex min-h-11 items-center pr-4 text-sm hover:underline">
+              <Link key={href} href={href} className="inline-flex min-h-11 shrink-0 items-center pr-4 text-sm hover:underline">
                 {label}
               </Link>
             ))}
           </nav>
-          <form action={logout} className="flex items-center gap-2 text-sm text-muted">
-            <ThemeToggle />
+          <form action={logout} className="flex items-center justify-end gap-2 text-sm text-muted">
+            <ThemeToggle compact />
             <span className="capitalize">{actor.role}</span>
             <button type="submit" className="inline-flex min-h-11 items-center underline">
               Sign out

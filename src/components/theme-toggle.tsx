@@ -30,7 +30,8 @@ const icons: Record<Mode, string> = {
   dark: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z",
 };
 
-export function ThemeToggle() {
+/** compact: icon only on phones (label shows from the sm breakpoint up). */
+export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const mode = useSyncExternalStore(subscribe, read, () => "auto" as Mode);
   return (
     <button
@@ -42,7 +43,7 @@ export function ThemeToggle() {
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d={icons[mode]} />
       </svg>
-      <span>{LABEL[mode]}</span>
+      <span className={compact ? "sr-only sm:not-sr-only" : undefined}>{LABEL[mode]}</span>
     </button>
   );
 }
